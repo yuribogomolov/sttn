@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from newton.skeleton import fib
+from sttn.skeleton import fib
 
 __author__ = "Yuri Bogomolov"
 __copyright__ = "Yuri Bogomolov"

@@ -1,8 +1,8 @@
 =======
-newton
+sttn
 =======
 
-This is the documentation of **newton**.
+This is the documentation of **sttn**.
 
 .. note::
 
