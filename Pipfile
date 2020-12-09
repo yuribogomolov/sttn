@@ -5,10 +5,13 @@ name = "pypi"
 
 [packages]
 sttn = {editable = true, path = "."}
+pandas = "*"
 
 [dev-packages]
 pytest = "*"
 pytest-cov = "*"
+ipython = "*"
+jupyter = "*"
 
 [requires]
 python_version = "3.8"
