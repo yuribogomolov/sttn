@@ -1,4 +1,5 @@
 import pandas as pd
+import geopandas as gpd
 import numpy as np
 from . import network
 
@@ -12,4 +13,9 @@ class NycTaxiDataProvider:
         df = pd.read_csv(url, usecols=column_names, parse_dates=['tpep_pickup_datetime'], dtype=types)
         df = df.dropna()
         df['passenger_count'] = df['passenger_count'].astype(int)
-        return network.SpatioTemporalNetwork(df, column_from='PULocationID', column_to='DOLocationID', time_column='tpep_pickup_datetime')
+
+        labels = gpd.read_file('https://s3.amazonaws.com/nyc-tlc/misc/taxi_zones.zip')
+        labels = labels.rename(columns={'OBJECTID': '_id'})
+        labels.set_index('_id')
+        return network.SpatioTemporalNetwork(df, column_from='PULocationID', column_to='DOLocationID',
+                                             time_column='tpep_pickup_datetime', node_labels=labels)

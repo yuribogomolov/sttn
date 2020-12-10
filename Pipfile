@@ -5,8 +5,11 @@ name = "pypi"
 
 [packages]
 sttn = {editable = true, path = "."}
+descartes = "*"
+matplotlib = "*"
 pandas = "*"
 networkx = "*"
+geopandas = "*"
 
 [dev-packages]
 pytest = "*"
