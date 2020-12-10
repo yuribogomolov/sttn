@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 sttn = {editable = true, path = "."}
 pandas = "*"
+networkx = "*"
 
 [dev-packages]
 pytest = "*"
