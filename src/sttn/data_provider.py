@@ -11,7 +11,10 @@ class NycTaxiDataProvider:
         column_names = ['PULocationID', 'DOLocationID', 'tpep_pickup_datetime', 'passenger_count']
         types = {'PULocationID': np.int32, 'DOLocationID': np.int32}
         df = pd.read_csv(url, usecols=column_names, parse_dates=['tpep_pickup_datetime'], dtype=types)
+        df = df[(df['PULocationID'] > 0) & (df['PULocationID'] < 264)]
+        df = df[(df['DOLocationID'] > 0) & (df['DOLocationID'] < 264)]
         df = df.dropna()
+        df = df[(df['tpep_pickup_datetime'] >= from_date) & (df['tpep_pickup_datetime'] <= to_date)]
         df['passenger_count'] = df['passenger_count'].astype(int)
 
         labels = gpd.read_file('https://s3.amazonaws.com/nyc-tlc/misc/taxi_zones.zip')
