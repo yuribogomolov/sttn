@@ -1,4 +1,6 @@
 import networkx as nx
+import pandas as pd
+from networkx.algorithms import community
 
 class SpatioTemporalNetwork:
     def __init__(self, edges_df, node_labels = {}):
@@ -11,21 +13,26 @@ class SpatioTemporalNetwork:
         return SpatioTemporalNetwork(new_edges, self.node_labels)
 
     def to_multigraph(self):
-        G = nx.MultiDiGraph()
-        G.add_nodes_from(self.edges_df['from'].tolist())
-        G.add_nodes_from(self.edges_df['to'].tolist())
-        G.add_edges_from(list(zip(self.edges_df['from'], self.edges_df['to'])))
-        return G
+        return nx.from_pandas_edgelist(self.edges_df, source='from', target='to', edge_attr=True, create_using=nx.MultiDiGraph)
 
     def shape(self):
         G = self.to_multigraph()
         return (G.number_of_nodes(), G.number_of_edges())
 
     def group_nodes(self, node_label):
-        dissolved = self.node_labels.dissolve(by=node_label, as_index=False).rename(columns={node_label: 'id'})
+        node_labels = self.node_labels
+
+        if isinstance(node_label, list):
+            node_to_label = [(item, ind) for ind, sublist in enumerate(node_label) for item in sublist]
+            community_df = pd.DataFrame(node_to_label, columns=['id', 'community'])
+            community_df = community_df.set_index('id')
+            node_labels = self.node_labels.join(community_df)
+            node_label = 'community'
+
+        dissolved = node_labels.dissolve(by=node_label, as_index=False).rename(columns={node_label: 'id'})
         dissolved = dissolved.set_index('id')
 
-        node_mapping = self.node_labels[[node_label]]
+        node_mapping = node_labels[[node_label]]
         mapped_from = self.edges_df.join(node_mapping, on='from').drop('from', axis=1).rename(columns={node_label: 'from'})
         mapped_to = mapped_from.join(node_mapping, on='to').drop('to', axis=1).rename(columns={node_label: 'to'})
         return SpatioTemporalNetwork(mapped_to, dissolved)
@@ -38,6 +45,14 @@ class SpatioTemporalNetwork:
     def join_node_labels(self, extra_columns):
         new_labels = self.node_labels.join(extra_columns)
         return SpatioTemporalNetwork(self.edges_df, new_labels)
+
+    def detect_communities(self, algo, **kwargs):
+        if algo == 'fluid':
+            comm_iter = community.asyn_fluidc(self.to_multigraph().to_undirected(), **kwargs)
+            return list(comm_iter)
+        if algo == 'clm':
+            comm_iter = community.greedy_modularity_communities(self.to_multigraph().to_undirected(), **kwargs)
+            return list(comm_iter)
 
     def plot(self, **kwargs):
         return self.node_labels.plot(**kwargs)
