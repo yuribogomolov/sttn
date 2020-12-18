@@ -9,8 +9,10 @@ descartes = "*"
 matplotlib = "*"
 mapclassify = "*"
 pandas = "*"
+numpy = "*"
 networkx = "*"
 geopandas = "*"
+requests = "*"
 
 [dev-packages]
 pytest = "*"
