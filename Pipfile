@@ -13,6 +13,7 @@ numpy = "*"
 networkx = "*"
 geopandas = "*"
 requests = "*"
+pyarrow = "*"
 
 [dev-packages]
 pytest = "*"

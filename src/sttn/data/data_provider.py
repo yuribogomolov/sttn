@@ -1,6 +1,8 @@
+import json
 import requests
 import os
 import pathlib
+import hashlib
 
 
 class DataProvider:
@@ -23,3 +25,11 @@ class DataProvider:
 
     def cache_dir(self):
         return os.path.join(pathlib.Path.home(), '.sttn', 'data', self.__class__.__name__)
+
+    @staticmethod
+    def hash_args(**kwargs) -> str:
+        """MD5 hash of a dictionary."""
+        md5 = hashlib.md5()
+        encoded = json.dumps(kwargs, sort_keys=True).encode()
+        md5.update(encoded)
+        return md5.hexdigest()
