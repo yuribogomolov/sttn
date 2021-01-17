@@ -3,13 +3,16 @@ import pandas as pd
 from networkx.algorithms import community
 
 class SpatioTemporalNetwork:
-    def __init__(self, edges_df, node_labels = {}):
+    def __init__(self, edges_df, node_labels):
         self.edges_df = edges_df
         self.node_labels = node_labels
         self.directed = True
 
-    def agg_parallel_edges(self, column_aggs):
-        new_edges = self.edges_df.groupby(by=['from', 'to'], as_index=False).agg(column_aggs)
+    def agg_parallel_edges(self, column_aggs, key=None):
+        grouping = ['from', 'to']
+        if key:
+            grouping.append(key)
+        new_edges = self.edges_df.groupby(by=grouping, as_index=False).agg(column_aggs)
         return SpatioTemporalNetwork(new_edges, self.node_labels)
 
     def to_multigraph(self):

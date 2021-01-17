@@ -52,6 +52,7 @@ class Service311RequestsDataProvider(DataProvider):
         filtered_file = self.filter_requests(data, from_date, to_date, column_names)
 
         nyc_shape = gpd.read_file('https://data.cityofnewyork.us/api/views/i8iw-xf4u/files/YObIR0MbpUVA0EpQzZSq5x55FzKGM2ejSeahdvjqR20?filename=ZIP_CODE_040114.zip')
+        nyc_shape['ZIPCODE'] = nyc_shape['ZIPCODE'].astype(int)
         requests = pd.read_parquet(filtered_file)
         requests['Incident Zip'] = requests['Incident Zip'].astype(int)
 
