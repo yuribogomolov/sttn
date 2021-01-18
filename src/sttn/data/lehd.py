@@ -14,19 +14,25 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
     def build_network(self, state: str, year: int) -> network.SpatioTemporalNetwork:
         od_columns = ['w_geocode', 'h_geocode', 'S000', 'SA01', 'SA02', 'SA03', 'SE01', 'SE02', 'SE03', 'SI01', 'SI02',
                       'SI03']
-        xwalk_columns = ['tabblk2010', 'trct']
+        xwalk_columns = ['tabblk2010', 'trct', 'ctyname', 'zcta']
         od_data = pd.read_csv(self.od_fname, compression='gzip', usecols=od_columns)
         xwalk_data = pd.read_csv(self.xwalk_fname, compression='gzip', index_col='tabblk2010', usecols=xwalk_columns)
         # map census Block Codes to Census Tract codes
-        home_joined = xwalk_data.merge(od_data, left_index=True, right_on='h_geocode', how='inner').rename(
+        home_joined = xwalk_data[['trct']].merge(od_data, left_index=True, right_on='h_geocode', how='inner').rename(
             columns={'trct': 'from'})
-        joined = xwalk_data.merge(home_joined, left_index=True, right_on='w_geocode', how='inner').rename(
+        joined = xwalk_data[['trct']].merge(home_joined, left_index=True, right_on='w_geocode', how='inner').rename(
             columns={'trct': 'to'})
         cleaned = joined.drop(['w_geocode', 'h_geocode'], axis=1)
         aggregated = cleaned.groupby(['from', 'to']).sum().reset_index()
 
-        tract_shapes = census.get_tract_geo(state=state, year=year).set_index('GEOID')
-        return network.SpatioTemporalNetwork(aggregated, node_labels=tract_shapes)
+        rename_map = {'trct': 'id', 'ctyname': 'county', 'zcta': 'zip'}
+        renamed = xwalk_data.reset_index()[['trct', 'ctyname', 'zcta']].rename(columns=rename_map)
+        # 99999 is used for unknown zip codes
+        tract_to_zip = renamed[renamed.zip != 99999].groupby('id').first()
+        tract_geo_columns = ['GEOID', 'geometry']
+        tract_shapes = census.get_tract_geo(state=state, year=year)[tract_geo_columns].set_index('GEOID')
+        tracts_with_zip = tract_shapes.merge(tract_to_zip, left_index=True, right_on='id', how='inner')
+        return network.SpatioTemporalNetwork(aggregated, node_labels=tracts_with_zip)
 
     def get_data(self, state: str, year: int, part: str = 'main', job_type: int = 0) -> network.SpatioTemporalNetwork:
         self._cache(state=state, year=year, part=part, job_type=job_type)
