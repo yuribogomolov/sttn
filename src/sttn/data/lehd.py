@@ -30,8 +30,11 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
         # 99999 is used for unknown zip codes
         tract_to_zip = renamed[renamed.zip != 99999].groupby('id').first()
         tract_geo_columns = ['GEOID', 'geometry']
-        tract_shapes = census.get_tract_geo(state=state, year=year)[tract_geo_columns].set_index('GEOID')
-        tracts_with_zip = tract_shapes.merge(tract_to_zip, left_index=True, right_on='id', how='inner')
+        tract_shapes = census.get_tract_geo(state=state, year=year)
+        # filter out water-only tracts:
+        filtered_tracts = tract_shapes[tract_shapes.ALAND > 0] // [tract_shapes.ALAND * 5 > tract_shapes.AWATER]
+        indexed_tracts = filtered_tracts[tract_geo_columns].set_index('GEOID')
+        tracts_with_zip = indexed_tracts.merge(tract_to_zip, left_index=True, right_on='id', how='inner')
         return network.SpatioTemporalNetwork(aggregated, node_labels=tracts_with_zip)
 
     def get_data(self, state: str, year: int, part: str = 'main', job_type: int = 0) -> network.SpatioTemporalNetwork:

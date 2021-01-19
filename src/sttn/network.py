@@ -49,6 +49,16 @@ class SpatioTemporalNetwork:
         new_labels = self.node_labels.join(extra_columns)
         return SpatioTemporalNetwork(self.edges_df, new_labels)
 
+    def filter_nodes(self, condition: pd.Series):
+        if self.node_labels.shape[0] != condition.count():
+            msg = 'Number of nodes {nodes} is different from the length of the condition array {condition}'.format(
+                nodes=self.node_labels.shape[0], condition=condition.count())
+            raise ValueError(msg)
+
+        ids_to_keep = self.node_labels[condition].index
+        filtered_edges = self.edges_df[self.edges_df['from'].isin(ids_to_keep) & self.edges_df.to.isin(ids_to_keep)]
+        return SpatioTemporalNetwork(filtered_edges, self.node_labels[condition])
+
     def detect_communities(self, algo, **kwargs):
         if algo == 'fluid':
             comm_iter = community.asyn_fluidc(self.to_multigraph().to_undirected(), **kwargs)
