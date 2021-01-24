@@ -1,5 +1,6 @@
 import networkx as nx
 import pandas as pd
+import skmob
 from networkx.algorithms import community
 
 class SpatioTemporalNetwork:
@@ -17,6 +18,10 @@ class SpatioTemporalNetwork:
 
     def to_multigraph(self):
         return nx.from_pandas_edgelist(self.edges_df, source='from', target='to', edge_attr=True, create_using=nx.MultiDiGraph)
+
+    def to_flow_date_frame(self, flow: str) -> skmob.FlowDataFrame:
+        return skmob.FlowDataFrame(self.edges_df, origin='from', destination='to', flow=flow, tile_id='id',
+                                   tessellation=self.node_labels.reset_index())
 
     def shape(self):
         G = self.to_multigraph()
