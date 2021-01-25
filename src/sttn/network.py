@@ -45,9 +45,10 @@ class SpatioTemporalNetwork:
         mapped_to = mapped_from.join(node_mapping, on='to').drop('to', axis=1).rename(columns={node_label: 'to'})
         return SpatioTemporalNetwork(mapped_to, dissolved)
 
-    def agg_adjacent_edges(self, aggs, outgoing = True):
+    def agg_adjacent_edges(self, aggs, outgoing: bool = True, include_cycles: bool = True):
         grouping_column = 'from' if outgoing else 'to'
-        grouped = self.edges_df.groupby(grouping_column).agg(aggs)
+        edges = self.edges_df if include_cycles else self.edges_df[self.edges_df['from'] != self.edges_df['to']]
+        grouped = edges.groupby(grouping_column).agg(aggs)
         return grouped.rename(columns={grouping_column: 'id'})
 
     def join_node_labels(self, extra_columns):
