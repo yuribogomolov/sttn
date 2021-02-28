@@ -15,6 +15,7 @@ geopandas = "*"
 requests = "*"
 pyarrow = "*"
 scikit-mobility = "*"
+haversine = "*"
 
 [dev-packages]
 pytest = "*"
