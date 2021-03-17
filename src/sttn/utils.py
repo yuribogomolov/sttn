@@ -1,5 +1,5 @@
 import pandas as pd
-from network import SpatioTemporalNetwork
+from sttn.network import SpatioTemporalNetwork
 
 from haversine import haversine_vector, Unit
 
