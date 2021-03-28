@@ -2,6 +2,7 @@ import pandas as pd
 from sttn.network import SpatioTemporalNetwork
 
 from haversine import haversine_vector, Unit
+from networkx.algorithms import community
 
 
 def add_distance(network: SpatioTemporalNetwork) -> SpatioTemporalNetwork:
@@ -20,3 +21,12 @@ def add_distance(network: SpatioTemporalNetwork) -> SpatioTemporalNetwork:
     centroid_all['distance'] = haversine_vector(from_points, to_points, Unit.KILOMETERS)
     centroid_all.drop(['long_from', 'lat_from', 'long_to', 'lat_to'], axis=1, inplace=True)
     return SpatioTemporalNetwork(centroid_all, network.node_labels)
+
+
+def detect_communities(network: SpatioTemporalNetwork, algo, **kwargs):
+    if algo == 'fluid':
+        comm_iter = community.asyn_fluidc(network.to_multigraph().to_undirected(), **kwargs)
+        return list(comm_iter)
+    if algo == 'clm':
+        comm_iter = community.greedy_modularity_communities(network.to_multigraph().to_undirected(), **kwargs)
+        return list(comm_iter)

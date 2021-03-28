@@ -1,77 +1,117 @@
+from sttn import constants
 import networkx as nx
 import pandas as pd
+import geopandas as gpd
 import skmob
-from networkx.algorithms import community
+
 
 class SpatioTemporalNetwork:
-    def __init__(self, edges_df, node_labels):
-        self.edges_df = edges_df
-        self.node_labels = node_labels
-        self.directed = True
+    def __init__(self, nodes: gpd.GeoDataFrame, edges: pd.DataFrame, origin: str = constants.ORIGIN,
+                 destination: str = constants.DESTINATION, node_id: str = constants.NODE_ID):
+        if not isinstance(nodes, gpd.GeoDataFrame):
+            raise TypeError('Incompatible nodes data type: {e}'.format(e=type(edges)))
+
+        if not isinstance(edges, pd.DataFrame):
+            raise TypeError('Incompatible edges data type: {e}'.format(e=type(edges)))
+
+        if origin not in edges:
+            raise KeyError('Origin column name: {orig} is not found in the list: {columns}'
+                           .format(orig=origin, columns=list(edges.columns)))
+
+        if destination not in edges:
+            raise KeyError('Destination column name: {dest} is not found in the list: {columns}'
+                           .format(dest=destination, columns=list(edges.columns)))
+
+        if not nodes.index.name == node_id:
+            raise ValueError('Nodes dataframe must be indexed on {id}'.format(id=node_id))
+
+        if edges[origin].dtype != edges[destination].dtype:
+            raise TypeError('Origin dtype {o} does not match destination dtype {d}'
+                            .format(o=edges[origin].dtype, d=edges[destination].dtype))
+
+        if edges[origin].dtype != nodes.index.dtype:
+            raise TypeError('Origin dtype {o} does not match node index dtype {d}'
+                            .format(o=edges[origin].dtype, d=nodes.index.dtype))
+
+        SpatioTemporalNetwork._validate_ids(edges[origin], nodes.index)
+        SpatioTemporalNetwork._validate_ids(edges[destination], nodes.index)
+
+        self._nodes = nodes
+        self._edges = edges
+        self._origin = origin
+        self._destination = destination
+        self._node_id = node_id
+
+    @staticmethod
+    def _validate_ids(edge_ids: pd.Series, node_index: pd.Index):
+        not_in_index = edge_ids[~edge_ids.isin(node_index)]
+        if not_in_index.size > 0:
+            raise KeyError('Edge ids {ids} are not in the node index'.format(ids=list(not_in_index.head(5))))
+
+    @property
+    def nodes(self):
+        return self._nodes
+
+    @property
+    def edges(self):
+        return self._edges
 
     def agg_parallel_edges(self, column_aggs, key=None):
-        grouping = ['from', 'to']
+        grouping = [self._origin, self._destination]
         if key:
             grouping.append(key)
-        new_edges = self.edges_df.groupby(by=grouping, as_index=False).agg(column_aggs)
-        return SpatioTemporalNetwork(new_edges, self.node_labels)
+        new_edges = self._edges.groupby(by=grouping, as_index=False).agg(column_aggs)
+        return SpatioTemporalNetwork(new_edges, self._nodes)
 
     def to_multigraph(self):
-        return nx.from_pandas_edgelist(self.edges_df, source='from', target='to', edge_attr=True, create_using=nx.MultiDiGraph)
+        return nx.from_pandas_edgelist(self._edges, source=self._origin, target=self._destination,
+                                       edge_attr=True, create_using=nx.MultiDiGraph)
 
     def to_flow_date_frame(self, flow: str) -> skmob.FlowDataFrame:
-        return skmob.FlowDataFrame(self.edges_df, origin='from', destination='to', flow=flow, tile_id='id',
-                                   tessellation=self.node_labels.reset_index())
+        return skmob.FlowDataFrame(self._edges, origin=self._origin, destination=self._destination, flow=flow,
+                                   tile_id=self._node_id, tessellation=self._nodes.reset_index())
 
-    def shape(self):
-        G = self.to_multigraph()
-        return (G.number_of_nodes(), G.number_of_edges())
+    def shape(self) -> (int, int):
+        return self._edges.shape[0], self._edges.shape[0]
 
     def group_nodes(self, node_label):
-        node_labels = self.node_labels
+        nodes = self._nodes
 
         if isinstance(node_label, list):
             node_to_label = [(item, ind) for ind, sublist in enumerate(node_label) for item in sublist]
-            community_df = pd.DataFrame(node_to_label, columns=['id', 'community'])
-            community_df = community_df.set_index('id')
-            node_labels = self.node_labels.join(community_df)
+            community_df = pd.DataFrame(node_to_label, columns=[self._node_id, 'community'])
+            community_df = community_df.set_index(self._node_id)
+            nodes = self._nodes.join(community_df)
             node_label = 'community'
 
-        dissolved = node_labels.dissolve(by=node_label, as_index=False).rename(columns={node_label: 'id'})
-        dissolved = dissolved.set_index('id')
+        dissolved = nodes.dissolve(by=node_label, as_index=False).rename(columns={node_label: self._node_id})
+        dissolved = dissolved.set_index(self._node_id)
 
-        node_mapping = node_labels[[node_label]]
-        mapped_from = self.edges_df.join(node_mapping, on='from').drop('from', axis=1).rename(columns={node_label: 'from'})
-        mapped_to = mapped_from.join(node_mapping, on='to').drop('to', axis=1).rename(columns={node_label: 'to'})
+        node_mapping = nodes[[node_label]]
+        mapped_from = self._edges.join(node_mapping, on=self._origin)\
+            .drop(self._origin, axis=1)\
+            .rename(columns={node_label: self._origin})
+        mapped_to = mapped_from.join(node_mapping, on=self._destination)\
+            .drop(self._destination, axis=1)\
+            .rename(columns={node_label: self._destination})
         return SpatioTemporalNetwork(mapped_to, dissolved)
 
     def agg_adjacent_edges(self, aggs, outgoing: bool = True, include_cycles: bool = True):
         grouping_column = 'from' if outgoing else 'to'
-        edges = self.edges_df if include_cycles else self.edges_df[self.edges_df['from'] != self.edges_df['to']]
+        edges = self._edges if include_cycles else self._edges[self._edges[self._origin] != self._edges[self._destination]]
         grouped = edges.groupby(grouping_column).agg(aggs)
-        return grouped.rename(columns={grouping_column: 'id'})
+        return grouped.rename(columns={grouping_column: self._node_id})
 
     def join_node_labels(self, extra_columns):
-        new_labels = self.node_labels.join(extra_columns)
-        return SpatioTemporalNetwork(self.edges_df, new_labels)
+        new_nodes = self._nodes.join(extra_columns)
+        return SpatioTemporalNetwork(new_nodes, self._edges)
 
     def filter_nodes(self, condition: pd.Series):
-        if self.node_labels.shape[0] != condition.count():
+        if self._nodes.shape[0] != condition.count():
             msg = 'Number of nodes {nodes} is different from the length of the condition array {condition}'.format(
-                nodes=self.node_labels.shape[0], condition=condition.count())
+                nodes=self._nodes.shape[0], condition=condition.count())
             raise ValueError(msg)
 
-        ids_to_keep = self.node_labels[condition].index
-        filtered_edges = self.edges_df[self.edges_df['from'].isin(ids_to_keep) & self.edges_df.to.isin(ids_to_keep)]
-        return SpatioTemporalNetwork(filtered_edges, self.node_labels[condition])
-
-    def detect_communities(self, algo, **kwargs):
-        if algo == 'fluid':
-            comm_iter = community.asyn_fluidc(self.to_multigraph().to_undirected(), **kwargs)
-            return list(comm_iter)
-        if algo == 'clm':
-            comm_iter = community.greedy_modularity_communities(self.to_multigraph().to_undirected(), **kwargs)
-            return list(comm_iter)
-
-    def plot(self, **kwargs):
-        return self.node_labels.plot(**kwargs)
+        ids_to_keep = self._nodes[condition].index
+        filtered_edges = self._edges[self._edges[self._origin].isin(ids_to_keep) & self._edges[self._destination].isin(ids_to_keep)]
+        return SpatioTemporalNetwork(filtered_edges, self._nodes[condition])
