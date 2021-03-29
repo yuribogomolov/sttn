@@ -56,12 +56,13 @@ class SpatioTemporalNetwork:
     def edges(self):
         return self._edges
 
-    def agg_parallel_edges(self, column_aggs, key=None):
+    def agg_parallel_edges(self, column_aggs: dict, key: str = None):
         grouping = [self._origin, self._destination]
         if key:
             grouping.append(key)
         new_edges = self._edges.groupby(by=grouping, as_index=False).agg(column_aggs)
-        return SpatioTemporalNetwork(new_edges, self._nodes)
+        return SpatioTemporalNetwork(nodes=self._nodes, edges=new_edges, origin=self._origin,
+                                     destination=self._destination, node_id=self._node_id)
 
     def to_multigraph(self):
         return nx.from_pandas_edgelist(self._edges, source=self._origin, target=self._destination,
@@ -72,7 +73,7 @@ class SpatioTemporalNetwork:
                                    tile_id=self._node_id, tessellation=self._nodes.reset_index())
 
     def shape(self) -> (int, int):
-        return self._edges.shape[0], self._edges.shape[0]
+        return self._nodes.shape[0], self._edges.shape[0]
 
     def group_nodes(self, node_label):
         nodes = self._nodes
@@ -94,17 +95,19 @@ class SpatioTemporalNetwork:
         mapped_to = mapped_from.join(node_mapping, on=self._destination)\
             .drop(self._destination, axis=1)\
             .rename(columns={node_label: self._destination})
-        return SpatioTemporalNetwork(mapped_to, dissolved)
+        return SpatioTemporalNetwork(nodes=dissolved, edges=mapped_to, origin=self._origin,
+                                     destination=self._destination, node_id=self._node_id)
 
-    def agg_adjacent_edges(self, aggs, outgoing: bool = True, include_cycles: bool = True):
-        grouping_column = 'from' if outgoing else 'to'
+    def agg_adjacent_edges(self, aggs: dict, outgoing: bool = True, include_cycles: bool = True) -> pd.DataFrame:
+        grouping_column = self._origin if outgoing else self._destination
         edges = self._edges if include_cycles else self._edges[self._edges[self._origin] != self._edges[self._destination]]
         grouped = edges.groupby(grouping_column).agg(aggs)
         return grouped.rename(columns={grouping_column: self._node_id})
 
     def join_node_labels(self, extra_columns):
         new_nodes = self._nodes.join(extra_columns)
-        return SpatioTemporalNetwork(new_nodes, self._edges)
+        return SpatioTemporalNetwork(nodes=new_nodes, edges=self._edges, origin=self._origin,
+                                     destination=self._destination, node_id=self._node_id)
 
     def filter_nodes(self, condition: pd.Series):
         if self._nodes.shape[0] != condition.count():
@@ -114,4 +117,5 @@ class SpatioTemporalNetwork:
 
         ids_to_keep = self._nodes[condition].index
         filtered_edges = self._edges[self._edges[self._origin].isin(ids_to_keep) & self._edges[self._destination].isin(ids_to_keep)]
-        return SpatioTemporalNetwork(filtered_edges, self._nodes[condition])
+        return SpatioTemporalNetwork(nodes=self._nodes[condition], edges=filtered_edges, origin=self._origin,
+                                     destination=self._destination, node_id=self._node_id)
