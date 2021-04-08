@@ -22,6 +22,7 @@ def test_agg_parallel_edges_no_key():
 
     expected = pd.DataFrame(data={'origin': [1, 2, 2], 'destination': [2, 1, 2], 'value': [11, 4, 16]})
     assert_frame_equal(aggregated.edges, expected)
+    assert_frame_equal(aggregated.nodes, nodes_gpd)
 
 
 def test_agg_parallel_edges_with_key():

@@ -19,11 +19,11 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
         xwalk_data = pd.read_csv(self.xwalk_fname, compression='gzip', index_col='tabblk2010', usecols=xwalk_columns)
         # map census Block Codes to Census Tract codes
         home_joined = xwalk_data[['trct']].merge(od_data, left_index=True, right_on='h_geocode', how='inner').rename(
-            columns={'trct': 'from'})
+            columns={'trct': 'origin'})
         joined = xwalk_data[['trct']].merge(home_joined, left_index=True, right_on='w_geocode', how='inner').rename(
-            columns={'trct': 'to'})
+            columns={'trct': 'destination'})
         cleaned = joined.drop(['w_geocode', 'h_geocode'], axis=1)
-        aggregated = cleaned.groupby(['from', 'to']).sum().reset_index()
+        aggregated_edges = cleaned.groupby(['origin', 'destination']).sum().reset_index()
 
         rename_map = {'trct': 'id', 'ctyname': 'county', 'zcta': 'zip'}
         renamed = xwalk_data.reset_index()[['trct', 'ctyname', 'zcta']].rename(columns=rename_map)
@@ -36,7 +36,11 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
         filtered_tracts = tract_shapes[tract_shapes.ALAND > 0]
         indexed_tracts = filtered_tracts[tract_geo_columns].set_index('GEOID')
         tracts_with_zip = indexed_tracts.merge(tract_to_zip, left_index=True, right_on='id', how='inner')
-        return network.SpatioTemporalNetwork(aggregated, node_labels=tracts_with_zip)
+
+        # filter out edges for filtered nodes
+        ids_to_keep = tracts_with_zip.index
+        filtered_edges = aggregated_edges[aggregated_edges.origin.isin(ids_to_keep) & aggregated_edges.destination.isin(ids_to_keep)]
+        return network.SpatioTemporalNetwork(nodes=tracts_with_zip, edges=filtered_edges)
 
     def get_data(self, state: str, year: int, part: str = 'main', job_type: int = 0) -> network.SpatioTemporalNetwork:
         self._cache(state=state, year=year, part=part, job_type=job_type)

@@ -16,6 +16,7 @@ requests = "*"
 pyarrow = "*"
 scikit-mobility = "*"
 haversine = "*"
+statsmodels = "*"
 
 [dev-packages]
 pytest = "*"

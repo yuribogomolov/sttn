@@ -46,7 +46,8 @@ class SpatioTemporalNetwork:
     def _validate_ids(edge_ids: pd.Series, node_index: pd.Index):
         not_in_index = edge_ids[~edge_ids.isin(node_index)]
         if not_in_index.size > 0:
-            raise KeyError('Edge ids {ids} are not in the node index'.format(ids=list(not_in_index.head(5))))
+            samples = not_in_index.unique()[:5]
+            raise KeyError('Edge ids {ids} are not in the node index'.format(ids=samples))
 
     @property
     def nodes(self):
