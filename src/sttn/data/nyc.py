@@ -12,10 +12,11 @@ from .data_provider import DataProvider
 class NycTaxiDataProvider(DataProvider):
 
     def build_network(self, taxi_trips, taxi_zones):
-        edges = taxi_trips.rename(columns={'PULocationID': 'from', 'DOLocationID': 'to', 'tpep_pickup_datetime': 'time'})
+        edges = taxi_trips.rename(columns={'PULocationID': 'origin', 'DOLocationID': 'destination', 'tpep_pickup_datetime': 'time'})
+        edges_casted = edges.astype({'origin': 'int64', 'destination': 'int64'})
         taxi_zones = taxi_zones.rename(columns={'OBJECTID': 'id'})
         taxi_zones = taxi_zones.set_index('id')
-        return network.SpatioTemporalNetwork(edges, node_labels=taxi_zones)
+        return network.SpatioTemporalNetwork(nodes=taxi_zones, edges=edges_casted)
 
     def get_data(self, taxi_type, from_date, to_date):
         taxi_data = self.cache_file('https://s3.amazonaws.com/nyc-tlc/trip+data/' + taxi_type + '_tripdata_2020-06.csv')
