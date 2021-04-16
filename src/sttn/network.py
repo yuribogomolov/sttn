@@ -120,3 +120,13 @@ class SpatioTemporalNetwork:
         filtered_edges = self._edges[self._edges[self._origin].isin(ids_to_keep) & self._edges[self._destination].isin(ids_to_keep)]
         return SpatioTemporalNetwork(nodes=self._nodes[condition], edges=filtered_edges, origin=self._origin,
                                      destination=self._destination, node_id=self._node_id)
+
+    def filter_edges(self, condition: pd.Series):
+        if self._edges.shape[0] != condition.count():
+            msg = 'Number of edges {edges} is different from the length of the condition array {condition}'.format(
+                edges=self._edges.shape[0], condition=condition.count())
+            raise ValueError(msg)
+
+        filtered_edges = self._edges[condition]
+        return SpatioTemporalNetwork(nodes=self._nodes, edges=filtered_edges, origin=self._origin,
+                                     destination=self._destination, node_id=self._node_id)
