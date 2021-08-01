@@ -3,17 +3,13 @@ sttn
 =======
 
 
-Add a short description here!
+Library for spatio-temporal transactional network analysis
 
 
 Description
 ===========
 
-A longer description of your project goes here...
+Multiple real-world processes can be described by a list of transactions that include temporal and spatial dimensions, while transactions themself form a network between entities.
+Examples include credit card transactions, phone calls, taxi trips, social network interactions and the list goes on and on.
 
-
-Note
-====
-
-This project has been set up using PyScaffold 3.2.3. For details and usage
-information on PyScaffold see https://pyscaffold.org/.
+STTN is an attempt to combine elements of network, time and network analysis within one framework.
