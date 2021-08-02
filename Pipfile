@@ -5,9 +5,6 @@ name = "pypi"
 
 [packages]
 sttn = {editable = true, path = "."}
-descartes = "*"
-matplotlib = "*"
-mapclassify = "*"
 pandas = "*"
 numpy = "*"
 networkx = "*"
@@ -16,7 +13,6 @@ requests = "*"
 pyarrow = "*"
 scikit-mobility = "*"
 haversine = "*"
-statsmodels = "*"
 
 [dev-packages]
 pytest = "*"
