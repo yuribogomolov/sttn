@@ -1,5 +1,3 @@
-from typing import Final
-
-ORIGIN: Final = 'origin'
-DESTINATION: Final = 'destination'
-NODE_ID: Final = 'id'
+ORIGIN: str = 'origin'
+DESTINATION: str = 'destination'
+NODE_ID: str = 'id'
