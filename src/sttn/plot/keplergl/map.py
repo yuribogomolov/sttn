@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict
 
-from sttn.keplergl.layer import GeoMapLayer
+from sttn.plot.keplergl.layer import GeoMapLayer
 
 
 class MapConfig:

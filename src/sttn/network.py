@@ -50,11 +50,11 @@ class SpatioTemporalNetwork:
             raise KeyError('Edge ids {ids} are not in the node index'.format(ids=samples))
 
     @property
-    def nodes(self):
+    def nodes(self) -> gpd.GeoDataFrame:
         return self._nodes
 
     @property
-    def edges(self):
+    def edges(self) -> pd.DataFrame:
         return self._edges
 
     def agg_parallel_edges(self, column_aggs: dict, key: str = None):

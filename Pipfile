@@ -13,6 +13,7 @@ requests = "*"
 pyarrow = "*"
 scikit-mobility = "*"
 haversine = "*"
+keplergl = "*"
 
 [dev-packages]
 pytest = "*"
