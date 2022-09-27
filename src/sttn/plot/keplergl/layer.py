@@ -3,6 +3,17 @@ from typing import Any, Dict
 import random
 import string
 
+HIGHLIGHT_COLOR = [252, 242, 26, 255]
+COLOR_RANGE = {'name': 'Global Warming',
+               'type': 'sequential',
+               'category': 'Uber',
+               'colors': ['#5A1846',
+                          '#900C3F',
+                          '#C70039',
+                          '#E3611C',
+                          '#F1920E',
+                          '#FFC300']}
+
 
 class MapLayer(ABC):
     _id: str
@@ -50,22 +61,14 @@ class GeoMapLayer(MapLayer):
         return {'dataId': self._data_id,
                 'label': self._label,
                 'color': [137, 218, 193],
-                'highlightColor': [252, 242, 26, 255],
+                'highlightColor': HIGHLIGHT_COLOR,
                 'columns': {'geojson': 'geometry'},
                 'isVisible': True,
                 'visConfig': {'opacity': 0.6,
                               'strokeOpacity': 0.8,
                               'thickness': 0.5,
                               'strokeColor': [179, 173, 158],
-                              'colorRange': {'name': 'Global Warming',
-                                             'type': 'sequential',
-                                             'category': 'Uber',
-                                             'colors': ['#5A1846',
-                                                        '#900C3F',
-                                                        '#C70039',
-                                                        '#E3611C',
-                                                        '#F1920E',
-                                                        '#FFC300']},
+                              'colorRange': COLOR_RANGE,
                               'enableElevationZoomFactor': True,
                               'stroked': True,
                               'filled': True,
@@ -90,3 +93,51 @@ class GeoMapLayer(MapLayer):
     @property
     def layer_type(self) -> str:
         return 'geojson'
+
+
+class ArcLayer(MapLayer):
+    def __init__(self, data_id: str, label: str, origin_lat: str, origin_lng: str,
+                 destination_lat: str, destination_lng: str, size_column: str):
+        self._id = MapLayer.generate_id()
+        self._data_id = data_id
+        self._label = label
+        self._origin_lat = origin_lat
+        self._origin_lng = origin_lng
+        self._destination_lat = destination_lat
+        self._destination_lng = destination_lng
+        self._size_column = size_column
+
+    @property
+    def layer_type(self) -> str:
+        return 'arc'
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        return {'dataId': self._data_id,
+                'label': self._label,
+                'color': [34, 63, 154],
+                'highlightColor': HIGHLIGHT_COLOR,
+                'columns': {'lat0': self._origin_lat,
+                            'lng0': self._origin_lng,
+                            'lat1': self._destination_lat,
+                            'lng1': self._destination_lng},
+                'isVisible': True,
+                'visConfig': {'opacity': 0.8,
+                              'thickness': 2,
+                              'colorRange': COLOR_RANGE,
+                              'sizeRange': [0, 10],
+                              'targetColor': None},
+                'hidden': False,
+                'textLabel': [{'field': None,
+                               'color': [255, 255, 255],
+                               'size': 18,
+                               'offset': [0, 0],
+                               'anchor': 'start',
+                               'alignment': 'center'}]}
+
+    @property
+    def visual_channels(self) -> Dict[str, Any]:
+        return {'colorField': None,
+                'colorScale': 'quantile',
+                'sizeField': {'name': self._size_column, 'type': 'real'},
+                'sizeScale': 'linear'}

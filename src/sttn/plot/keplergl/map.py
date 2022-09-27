@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict
 
-from sttn.plot.keplergl.layer import GeoMapLayer
+from sttn.plot.keplergl.layer import ArcLayer, GeoMapLayer
 
 
 class MapConfig:
@@ -9,8 +9,19 @@ class MapConfig:
         self.layers = []
         self._data_id = data_id
 
+    def with_data_id(self, data_id) -> MapConfig:
+        self._data_id = data_id
+        return self
+
     def add_geo_layer(self, label: str, color_column: str) -> MapConfig:
         layer = GeoMapLayer(data_id=self._data_id, label=label, color_column=color_column)
+        self.layers.append(layer)
+        return self
+
+    def add_arc_layer(self, label: str, origin_lat: str, origin_lng: str,
+                      destination_lat: str, destination_lng: str, size_column: str) -> MapConfig:
+        layer = ArcLayer(data_id=self._data_id, label=label, origin_lat=origin_lat, origin_lng=origin_lng,
+                         destination_lat=destination_lat, destination_lng=destination_lng, size_column=size_column)
         self.layers.append(layer)
         return self
 
