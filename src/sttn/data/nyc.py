@@ -1,3 +1,5 @@
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import pandas as pd
 import geopandas as gpd
 import pyarrow as pa
@@ -29,6 +31,10 @@ class NycTaxiDataProvider(DataProvider):
         df = df[(df['PULocationID'] > 0) & (df['PULocationID'] < 264)]
         df = df[(df['DOLocationID'] > 0) & (df['DOLocationID'] < 264)]
         df = df.dropna()
+
+        from_date = datetime.strptime(month, '%Y-%m')
+        to_date = from_date + relativedelta(months=1)
+        df = df[(df['tpep_pickup_datetime'] >= from_date) & (df['tpep_pickup_datetime'] <= to_date)]
         df['passenger_count'] = df['passenger_count'].astype(int)
         labels = gpd.read_file(TAXI_ZONE_SHAPE_URL)
         return self.build_network(df, labels)
