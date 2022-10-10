@@ -13,6 +13,7 @@ COLOR_RANGE = {'name': 'Global Warming',
                           '#E3611C',
                           '#F1920E',
                           '#FFC300']}
+DEFAULT_HEATMAP_RADIUS = 10
 
 
 class MapLayer(ABC):
@@ -141,3 +142,42 @@ class ArcLayer(MapLayer):
                 'colorScale': 'quantile',
                 'sizeField': {'name': self._size_column, 'type': 'real'},
                 'sizeScale': 'linear'}
+
+
+class HeatMapLayer(MapLayer):
+    def __init__(self, data_id: str, label: str, lat_column: str, lng_column: str, weight_column: str):
+        self._id = MapLayer.generate_id()
+        self._data_id = data_id
+        self._label = label
+        self._lat = lat_column
+        self._lng = lng_column
+        self._weight_column = weight_column
+
+    @property
+    def layer_type(self) -> str:
+        return 'heatmap'
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        return {'dataId': self._data_id,
+                'label': self._label,
+                'color': [130, 154, 227],
+                'highlightColor': HIGHLIGHT_COLOR,
+                'columns': {'lat': self._lat,
+                            'lng': self._lng},
+                'isVisible': True,
+                'visConfig': {'opacity': 0.8,
+                              'colorRange': COLOR_RANGE,
+                              'radius': DEFAULT_HEATMAP_RADIUS},
+                'hidden': False,
+                'textLabel': [{'field': None,
+                               'color': [255, 255, 255],
+                               'size': 18,
+                               'offset': [0, 0],
+                               'anchor': 'start',
+                               'alignment': 'center'}]}
+
+    @property
+    def visual_channels(self) -> Dict[str, Any]:
+        return {'weightField': {'name': self._weight_column, 'type': 'real'},
+                'weightScale': 'linear'}

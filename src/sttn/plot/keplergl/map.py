@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict, Tuple
 
-from sttn.plot.keplergl.layer import ArcLayer, GeoMapLayer
+from sttn.plot.keplergl.layer import ArcLayer, GeoMapLayer, HeatMapLayer
 from sttn.plot.keplergl.filter import TimeRangeFilter
 
 
@@ -24,6 +24,12 @@ class MapConfig:
                       destination_lat: str, destination_lng: str, size_column: str) -> MapConfig:
         layer = ArcLayer(data_id=self._data_id, label=label, origin_lat=origin_lat, origin_lng=origin_lng,
                          destination_lat=destination_lat, destination_lng=destination_lng, size_column=size_column)
+        self.layers.append(layer)
+        return self
+
+    def add_heatmap_layer(self, label: str, lat_column: str, lng_column: str, weight_column: str):
+        layer = HeatMapLayer(data_id=self._data_id, label=label, lat_column=lat_column, lng_column=lng_column,
+                             weight_column=weight_column)
         self.layers.append(layer)
         return self
 

@@ -1,5 +1,3 @@
-import pandas as pd
-
 from sttn.network import SpatioTemporalNetwork
 from sttn.utils import get_edges_with_centroids
 from keplergl import KeplerGl
@@ -28,6 +26,26 @@ def choropleth(data: SpatioTemporalNetwork, node_layers: Optional[List[str]] = N
                                                      size_column=edge_size_column)
         map_data['edges'] = edges
 
+    output_map = KeplerGl(height=DEFAULT_MAP_HEIGHT, data=map_data, config=map_conf.to_dict())
+    return output_map
+
+
+def transaction_heatmap(data: SpatioTemporalNetwork, weight_column: str, transaction_node: str = "origin") -> KeplerGl:
+    map_conf = MapConfig(data_id='edges')
+    edges = get_edges_with_centroids(data)
+
+    if transaction_node == "origin":
+        lat = "lat_from"
+        lng = "long_from"
+    elif transaction_node == "destination":
+        lat = "lat_to"
+        lng = "long_to"
+    else:
+        raise ValueError(f"{transaction_node} is not one of supported values [origin, destination]")
+
+    map_conf.add_heatmap_layer(label=f"Edge {transaction_node} {weight_column}", lat_column=lat, lng_column=lng,
+                               weight_column=weight_column)
+    map_data = {'edges': edges}
     output_map = KeplerGl(height=DEFAULT_MAP_HEIGHT, data=map_data, config=map_conf.to_dict())
     return output_map
 
