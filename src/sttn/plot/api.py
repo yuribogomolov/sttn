@@ -1,7 +1,9 @@
+import pandas as pd
+
 from sttn.network import SpatioTemporalNetwork
 from sttn.utils import get_edges_with_centroids
 from keplergl import KeplerGl
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from .keplergl.map import MapConfig
 
@@ -30,7 +32,8 @@ def choropleth(data: SpatioTemporalNetwork, node_layers: Optional[List[str]] = N
     return output_map
 
 
-def transaction_heatmap(data: SpatioTemporalNetwork, weight_column: str, transaction_node: str = "origin") -> KeplerGl:
+def transaction_heatmap(data: SpatioTemporalNetwork, weight_column: str, transaction_node: str = "origin",
+                        time_motion_column: Optional[str] = None) -> KeplerGl:
     map_conf = MapConfig(data_id='edges')
     edges = get_edges_with_centroids(data)
 
@@ -45,13 +48,17 @@ def transaction_heatmap(data: SpatioTemporalNetwork, weight_column: str, transac
 
     map_conf.add_heatmap_layer(label=f"Edge {transaction_node} {weight_column}", lat_column=lat, lng_column=lng,
                                weight_column=weight_column)
+    if time_motion_column is not None:
+        window = _get_time_range(data.edges[time_motion_column])
+        map_conf.add_time_range_filter(time_column=time_motion_column, window=window, y_axis_column=weight_column)
+
     map_data = {'edges': edges}
     output_map = KeplerGl(height=DEFAULT_MAP_HEIGHT, data=map_data, config=map_conf.to_dict())
     return output_map
 
 
-def transaction_time_motion(data: SpatioTemporalNetwork, time_column: str,
-                            edge_size_column: str) -> KeplerGl:
+def transaction(data: SpatioTemporalNetwork, edge_size_column: str,
+                time_motion_column: Optional[str] = None) -> KeplerGl:
     map_conf = MapConfig(data_id='edges')
     edges = get_edges_with_centroids(data)
     map_conf.add_arc_layer(label=f"edge: {edge_size_column}", origin_lat="lat_from",
@@ -59,14 +66,20 @@ def transaction_time_motion(data: SpatioTemporalNetwork, time_column: str,
                            destination_lat="lat_to", destination_lng="long_to",
                            size_column=edge_size_column)
 
-    window_start = data.edges[time_column].min()
-    window_end = data.edges[time_column].max()
-    window = (window_start.value // 1000000, window_end.value // 1000000)
+    if time_motion_column is not None:
+        window = _get_time_range(data.edges[time_motion_column])
+        map_conf.add_time_range_filter(time_column=time_motion_column, window=window, y_axis_column=edge_size_column)
 
-    map_conf.add_time_range_filter(time_column=time_column, window=window, y_axis_column=edge_size_column)
     map_data = {'edges': edges}
     output_map = KeplerGl(height=DEFAULT_MAP_HEIGHT, data=map_data, config=map_conf.to_dict())
     return output_map
+
+
+def _get_time_range(time_column: pd.Series) -> Tuple[int, int]:
+    window_start = time_column.min()
+    window_end = time_column.max()
+    window = (window_start.value // 1000000, window_end.value // 1000000)
+    return window
 
 
 def _get_node_layers(node_layers: Optional[List[str]], node_columns: List[str]) -> List[str]:
