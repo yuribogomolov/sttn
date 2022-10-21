@@ -6,6 +6,9 @@ from networkx.algorithms import community
 
 
 def get_edges_with_centroids(network: SpatioTemporalNetwork) -> pd.DataFrame:
+    import warnings
+    warnings.filterwarnings('ignore', message=".*geographic CRS. Results from 'centroid' are likely incorrect.*")
+
     centroid = network.nodes.centroid
     centroid_long = centroid.x
     centroid_long.name = 'long'

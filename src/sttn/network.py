@@ -130,3 +130,15 @@ class SpatioTemporalNetwork:
         filtered_edges = self._edges[condition]
         return SpatioTemporalNetwork(nodes=self._nodes, edges=filtered_edges, origin=self._origin,
                                      destination=self._destination, node_id=self._node_id)
+
+    def to_parquet(self, path: str) -> None:
+        """Write a STTN to the Parquet format.
+        """
+        # ignore GeoPandas Parquet warnings
+        import warnings
+        warnings.filterwarnings('ignore', message='.*initial implementation of Parquet.*')
+
+        node_path = f"{path}-nodes.parquet"
+        edge_path = f"{path}-edges.parquet"
+        self._nodes.to_parquet(node_path)
+        self._edges.to_parquet(edge_path)
