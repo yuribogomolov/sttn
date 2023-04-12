@@ -21,8 +21,31 @@ Examples include credit card transactions, phone calls, taxi trips, social netwo
 
 Installation
 ===========
-The latest library release and required dependencies can be installed from PyPI:
+The latest library release and required dependencies can be installed from PyPI::
 
-```
-pip install sttn
-```
+    pip install sttn
+
+Getting started
+===========
+
+Import one of the included data providers, for example::
+
+    from sttn.data.lehd import OriginDestinationEmploymentDataProvider
+
+The latest list of included data providers can be found in the `data package <data_package_>`_. You can use available providers as an example to define your own parser. If the dataset is open we highly encourage you to open a Pull Request and contribute your provider to the community.
+
+Now you can create an instance of the data provider and retrieve the data::
+
+    lehd_provider = OriginDestinationEmploymentDataProvider()
+    ny_lehd = lehd_provider.get_data(state='ny', year=2018)
+
+Some data providers cache downloaded data on the local disk. The first run may take longer to download data from the Internet, while next runs will re-use the previously downloaded copy. The code above retrieves `LEHD Origin-Destination Employment Statistics <lodes>`_ for New York state based on 2018 census.
+In addition to the origin-destination employment data the command above downloads shape files for census blocks and leverages both datasets to build the network.
+
+Preview of node and edge attributes is helpful to understand the network structure::
+
+    ny_lehd.nodes # to see network nodes
+    ny_lehd.edges # to see network edges (or transactions)
+
+.. _data_package: https://github.com/yuribogomolov/sttn/tree/main/src/sttn/data
+.. _lodes: https://lehd.ces.census.gov/data/
