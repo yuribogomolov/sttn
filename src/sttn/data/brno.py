@@ -25,7 +25,7 @@ class JourneyDataProvider(DataProvider):
         if len(renamed.day.value_counts()) != 1:
             raise ValueError(f"The day file contains data from multiple days: {renamed.day_.value_counts()}")
 
-        day_delta = renamed.day[0]
+        day_delta = renamed.day.iloc[0]
         # observation start date is 7.10.2019
         renamed['start_ts'] = renamed.start_hr.apply(
             lambda hr: pd.Timestamp(year=2019, month=10, day=(7 + day_delta), hour=hr))
