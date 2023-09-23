@@ -10,12 +10,12 @@ from .data_provider import DataProvider
 class JourneyDataProvider(DataProvider):
 
     @staticmethod
-    def read_trip_file(file_path: str) -> pd.DataFrame:
+    def read_trip_file(file_path: str, start_level: int, end_level: int) -> pd.DataFrame:
         trips = pd.read_csv(file_path)
         # keep only trips with known origin and destination
         trips_filtered = trips[~trips['start_kod'].isnull() & ~trips['cil_kod'].isnull()]
-        # keep only local Brno trips
-        trips_filtered = trips_filtered[(trips_filtered['start_level'] == 1) & (trips_filtered['cil_level'] == 1)]
+        # filter Brno trip levels (urban/suburban)
+        trips_filtered = trips_filtered[(trips_filtered['start_level'] == start_level) & (trips_filtered['cil_level'] == end_level)]
         trips_filtered = trips_filtered.astype({"start_kod": int, "cil_kod": int})
         columns_to_rename = {"start_cas": "start_hr", "cil_cas": "end_hr", "start_kod": constants.ORIGIN,
                              "cil_kod": constants.DESTINATION, "pocet": "count", "cz": "is_czech",
@@ -36,9 +36,9 @@ class JourneyDataProvider(DataProvider):
         return renamed[columns_to_keep]
 
     @staticmethod
-    def read_edges(journey_csv_folder: str) -> pd.DataFrame:
+    def read_edges(journey_csv_folder: str, start_level: int, end_level: int) -> pd.DataFrame:
         edge_files = os.listdir(journey_csv_folder)
-        edge_dfs = [JourneyDataProvider.read_trip_file(f"{journey_csv_folder}/{fname}") for fname in edge_files if
+        edge_dfs = [JourneyDataProvider.read_trip_file(f"{journey_csv_folder}/{fname}", start_level, end_level) for fname in edge_files if
                     fname.endswith(".csv")]
         return pd.concat(edge_dfs)
 
@@ -55,17 +55,8 @@ class JourneyDataProvider(DataProvider):
         return converted
 
     @staticmethod
-    def build_network(taxi_trips, taxi_zones) -> network.SpatioTemporalNetwork:
-        edges = taxi_trips.rename(
-            columns={'PULocationID': 'origin', 'DOLocationID': 'destination', 'tpep_pickup_datetime': 'time'})
-        edges_casted = edges.astype({'origin': 'int64', 'destination': 'int64'})
-        taxi_zones = taxi_zones.rename(columns={'objectid': 'id'}).astype({'id': 'int32'})
-        taxi_zones = taxi_zones.set_index('id')
-        return network.SpatioTemporalNetwork(nodes=taxi_zones, edges=edges_casted)
-
-    @staticmethod
-    def get_data(journey_csv_folder: str, shapefile_name: str) -> network.SpatioTemporalNetwork:
+    def get_data(journey_csv_folder: str, shapefile_name: str, start_level: int = 1, end_level: int = 1) -> network.SpatioTemporalNetwork:
         nodes = JourneyDataProvider.read_nodes(shapefile_name)
-        edges = JourneyDataProvider.read_edges(journey_csv_folder)
+        edges = JourneyDataProvider.read_edges(journey_csv_folder, start_level=start_level, end_level=end_level)
         sttn_network = network.SpatioTemporalNetwork(nodes=nodes, edges=edges)
         return sttn_network
