@@ -6,8 +6,10 @@ from . import census
 
 
 class OriginDestinationEmploymentDataProvider(DataProvider):
-    """
-    Longitudinal Employer-Household Dynamics Origin-Destination Employment Statistics
+    """Longitudinal Employer-Household Dynamics Origin-Destination Employment Statistics
+    data provider. Every node represents a census tract and every edge contains the number
+    of people living in the origin and commuting to the destination tract.
+
     Data spec: https://lehd.ces.census.gov/data/lodes/LODES7/LODESTechDoc7.5.pdf
     """
 

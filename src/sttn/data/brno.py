@@ -8,6 +8,12 @@ from .data_provider import DataProvider
 
 
 class JourneyDataProvider(DataProvider):
+    """Brno journey data provider. Builds a network where every node represents a city district
+    and every edge contains the number of people who commuted from the origin to the destination
+    district within a given hour. The dataset covers one week of data from 7th to 13th October 2019.
+    The data is based on the passive communication between mobile phones and cell towers,
+    and it covers only one mobile phone company.
+    """
 
     @staticmethod
     def read_trip_file(file_path: str, start_level: int, end_level: int) -> pd.DataFrame:

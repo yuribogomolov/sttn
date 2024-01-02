@@ -13,6 +13,8 @@ TAXI_ZONE_SHAPE_URL = 'https://data.cityofnewyork.us/api/geospatial/d3c5-ddgc?me
 
 
 class NycTaxiDataProvider(DataProvider):
+    """New York Taxi data provider, builds a network where nodes represent taxi zones and edges
+    represent taxi trips for a given month. Every edge represents a single ride."""
 
     @staticmethod
     def build_network(taxi_trips, taxi_zones) -> network.SpatioTemporalNetwork:
@@ -41,6 +43,9 @@ class NycTaxiDataProvider(DataProvider):
 
 
 class Service311RequestsDataProvider(DataProvider):
+    """New York City 311 request data provider, builds a network where nodes represent zip codes
+     and every edge represents a 311 incident where origin and destination point to the node
+     where the incident happened."""
 
     def build_network(self, requests, nyc_zip_shape):
         requests['from'] = requests['Incident Zip']
