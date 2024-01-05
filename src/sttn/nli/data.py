@@ -2,6 +2,8 @@ from sttn.nli import Query
 from sttn.data.nyc import NycTaxiDataProvider, Service311RequestsDataProvider
 from sttn.data.lehd import OriginDestinationEmploymentDataProvider
 
+from jinja2 import Environment, PackageLoader
+
 DATA_PROVIDERS = [NycTaxiDataProvider, Service311RequestsDataProvider, OriginDestinationEmploymentDataProvider]
 
 
@@ -14,26 +16,12 @@ class NetworkBuilder:
 
     @staticmethod
     def _generate_provider_prompt(query: Query):
-        prefix = f"""Pick the data provider that can be used to answer the following query.
-         === Query ===
-         {query.query}
+        environment = Environment(loader=PackageLoader("sttn", package_path="nli/templates"))
+        template = environment.get_template("data_provider.j2")
+        context = {
+            "user_query": query.query,
+            "data_providers": DATA_PROVIDERS,
+        }
 
-         """
-
-        data_provider_prompt = f"""=== Data Providers ===
-        """
-        for provider in DATA_PROVIDERS:
-            data_provider_prompt = data_provider_prompt + f"""
-                provider_id: {provider.__name__}
-                provider_description: {provider.__doc__}
-                ======
-            """
-
-        suffix = f"""===Task===
-            Output a json message with two fields:
-            provider_id - the provider id that can be used to answer the question above, or an empty string if none of the providers from the list can be used.
-            justification - reasoning for the provider selection
-
-        """
-
-        return prefix + data_provider_prompt + suffix
+        prompt = template.render(context)
+        return prompt
