@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
-from typing import Any, Dict
 import random
 import string
+from abc import ABC, abstractmethod
+from typing import Any, Dict
 
 HIGHLIGHT_COLOR = [252, 242, 26, 255]
 COLOR_RANGE = {'name': 'Global Warming',

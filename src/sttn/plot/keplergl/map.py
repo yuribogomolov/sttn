@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 from typing import Any, Dict, Tuple
 
-from sttn.plot.keplergl.layer import ArcLayer, GeoMapLayer, HeatMapLayer
 from sttn.plot.keplergl.filter import TimeRangeFilter
+from sttn.plot.keplergl.layer import ArcLayer, GeoMapLayer, HeatMapLayer
 
 
 class MapConfig:

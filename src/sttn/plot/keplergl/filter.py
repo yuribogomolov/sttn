@@ -1,8 +1,7 @@
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple
-
 import random
 import string
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Tuple
 
 
 class MapFilter(ABC):

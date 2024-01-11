@@ -1,10 +1,10 @@
+from typing import Optional, List, Tuple
+
 import pandas as pd
+from keplergl import KeplerGl
 
 from sttn.network import SpatioTemporalNetwork
 from sttn.utils import get_edges_with_centroids
-from keplergl import KeplerGl
-from typing import Optional, List, Tuple
-
 from .keplergl.map import MapConfig
 
 DEFAULT_MAP_HEIGHT = 600

@@ -1,8 +1,8 @@
 import pandas as pd
-from sttn.network import SpatioTemporalNetwork
-
 from haversine import haversine_vector, Unit
 from networkx.algorithms import community
+
+from sttn.network import SpatioTemporalNetwork
 
 
 def get_edges_with_centroids(network: SpatioTemporalNetwork) -> pd.DataFrame:

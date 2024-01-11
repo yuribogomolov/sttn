@@ -1,8 +1,9 @@
+from typing import Optional
+
 import pandas as pd
 import pycombo
 
 from sttn.network import SpatioTemporalNetwork
-from typing import Optional
 
 
 def combo_communities(data: SpatioTemporalNetwork, weight: Optional[str] = None) -> SpatioTemporalNetwork:
