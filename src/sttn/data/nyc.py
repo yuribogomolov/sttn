@@ -1,10 +1,11 @@
+import os
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
-import pandas as pd
+
 import geopandas as gpd
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet
-import os
+from dateutil.relativedelta import relativedelta
 
 from sttn import network
 from .data_provider import DataProvider
@@ -14,7 +15,9 @@ TAXI_ZONE_SHAPE_URL = 'https://data.cityofnewyork.us/api/geospatial/d3c5-ddgc?me
 
 class NycTaxiDataProvider(DataProvider):
     """New York Taxi data provider, builds a network where nodes represent taxi zones and edges
-    represent taxi trips for a given month. Every edge represents a single ride."""
+    represent taxi trips for a given month. Yellow and green taxi trip records include fields capturing
+    pick-up and drop-off dates/times, pick-up and drop-off locations, trip distances, itemized fares,
+    rate types, payment types, and driver-reported passenger counts."""
 
     @staticmethod
     def build_network(taxi_trips, taxi_zones) -> network.SpatioTemporalNetwork:
@@ -26,6 +29,22 @@ class NycTaxiDataProvider(DataProvider):
         return network.SpatioTemporalNetwork(nodes=taxi_zones, edges=edges_casted)
 
     def get_data(self, taxi_type: str, month: str) -> network.SpatioTemporalNetwork:
+        """
+        Retrieves New York City taxi data
+
+        Args:
+            taxi_type (str): String taxi type one of the following values:
+                'yellow' - Yellow taxi
+                'green' - Green taxi
+                'fhv' - For-Hire vehicles
+                'fhvhv' - High-volume for-hire vehicles
+            month (str): A string with year and month in the "YYYY-MM" format.
+                The earliest dataset is available for 2009.
+
+        Returns:
+            SpatioTemporalNetwork: An STTN network where node represent New York City taxi zones
+                and edges represent individual trips.
+        """
         url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/{taxi_type}_tripdata_{month}.parquet'
         taxi_data = self.cache_file(url)
         column_names = ['PULocationID', 'DOLocationID', 'tpep_pickup_datetime', 'passenger_count', 'fare_amount']
@@ -59,7 +78,7 @@ class Service311RequestsDataProvider(DataProvider):
         node_labels.columns = node_labels.columns.str.lower()
         node_labels = node_labels.rename(columns={'zipcode': 'id'})
         node_labels = node_labels.set_index('id')
-        return network.SpatioTemporalNetwork(requests, node_labels=node_labels)
+        return network.SpatioTemporalNetwork(nodes=node_labels, edges=requests)
 
     def get_data(self, from_date, to_date):
         data = self.cache_file('https://data.cityofnewyork.us/api/views/erm2-nwe9/rows.csv')
