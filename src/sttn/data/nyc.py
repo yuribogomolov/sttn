@@ -165,20 +165,20 @@ class CitiBikeDataProvider(DataProvider):
 
         # Check if the file is a ZIP archive
         if bike_data.endswith('.zip'):
-            # Create a directory to extract the contents of the ZIP file
             extract_dir = 'temp_extract'
             os.makedirs(extract_dir, exist_ok=True)
 
-            # Extract the contents of the ZIP file
             with zipfile.ZipFile(bike_data, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
 
-            # Assume that there is only one CSV file in the ZIP archive
             csv_file = os.path.join(extract_dir, os.listdir(extract_dir)[0])
 
-            # Read the CSV file into a DataFrame
-            column_names = ['start_station_id', 'end_station_id', 'started_at', 'ended_at', 'start_lat',
-                            'start_lng', 'end_lat', 'end_lng']
+            if int(year)>2022 and int(month)>1:
+                column_names = ['start_station_id', 'end_station_id', 'started_at', 'ended_at', 'start_lat',
+                                'start_lng', 'end_lat', 'end_lng', 'rideable_type', 'member_casual']
+            else:
+                column_names = ['start_station_id', 'end_station_id', 'started_at', 'ended_at', 'start_lat',
+                                'start_lng', 'end_lat', 'end_lng']
             df = pd.read_csv(csv_file, usecols=column_names, parse_dates=['started_at'])
 
             # Remove the temporary extraction directory
