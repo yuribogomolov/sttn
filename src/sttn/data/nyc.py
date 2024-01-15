@@ -2,10 +2,12 @@ import os
 from datetime import datetime
 
 import geopandas as gpd
+from shapely.geometry import Point
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet
 from dateutil.relativedelta import relativedelta
+import zipfile
 
 from sttn import network
 from .data_provider import DataProvider
@@ -123,3 +125,77 @@ class Service311RequestsDataProvider(DataProvider):
             os.rename(tmp_file_path, file_path)
 
         return file_path
+
+class CitiBikeDataProvider(DataProvider):
+    """Citi Bike data provider, builds a network where nodes represent Citi Bike stations and edges
+    represent bike trips for a given month. Citi Bike trip records include fields capturing
+    start and end dates/times, start and end station IDs, trip durations, and user types."""
+
+    @staticmethod
+    def build_network(bike_trips) -> network.SpatioTemporalNetwork:
+        edges = bike_trips.rename(
+            columns={'start_station_id': 'origin', 'end_station_id': 'destination', 'started_at': 'time'})
+        edges_casted = edges.astype({'origin': 'str', 'destination': 'str'})
+        bike_stations = pd.concat([bike_trips[['start_station_id', 'start_lat', 'start_lng']],
+                             bike_trips[['end_station_id', 'end_lat', 'end_lng']].rename(columns={'end_station_id': 'start_station_id', 'end_lat': 'start_lat', 'end_lng': 'start_lng'})])
+        bike_stations = bike_stations.drop_duplicates(subset=['start_station_id'])
+        bike_stations = bike_stations.rename(columns={'start_station_id': 'id'}).astype({'id': 'str'})
+        bike_stations = bike_stations.set_index('id')
+        geometry = [Point(xy) for xy in zip(bike_stations.start_lat, bike_stations.start_lng)]
+        #df = df.drop(['Lon', 'Lat'], axis=1)
+        bike_stations = gpd.GeoDataFrame(bike_stations, crs="EPSG:4326", geometry=geometry)
+        return network.SpatioTemporalNetwork(nodes=bike_stations, edges=edges_casted)
+
+    def get_data(self, month: str, year: str) -> network.SpatioTemporalNetwork:
+        """
+        Retrieves Citi Bike data
+
+        Args:
+            month (str): A string denoting the month.
+            year (str): A string denoting the year.
+
+        Returns:
+            SpatioTemporalNetwork: An STTN network where nodes represent Citi Bike stations
+                and edges represent individual bike trips.
+        """
+        import zipfile
+        import shutil
+        zip_url = f'https://s3.amazonaws.com/tripdata/{year}{month}-citibike-tripdata.csv.zip'
+        bike_data = self.cache_file(zip_url)
+
+        # Check if the file is a ZIP archive
+        if bike_data.endswith('.zip'):
+            # Create a directory to extract the contents of the ZIP file
+            extract_dir = 'temp_extract'
+            os.makedirs(extract_dir, exist_ok=True)
+
+            # Extract the contents of the ZIP file
+            with zipfile.ZipFile(bike_data, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+
+            # Assume that there is only one CSV file in the ZIP archive
+            csv_file = os.path.join(extract_dir, os.listdir(extract_dir)[0])
+
+            # Read the CSV file into a DataFrame
+            column_names = ['start_station_id', 'end_station_id', 'started_at', 'ended_at', 'start_lat',
+                            'start_lng', 'end_lat', 'end_lng']
+            df = pd.read_csv(csv_file, usecols=column_names, parse_dates=['started_at'])
+
+            # Remove the temporary extraction directory
+            shutil.rmtree(extract_dir)#os.rmdir(extract_dir)
+
+        else:
+            # Read the CSV file directly if it's not a ZIP archive
+            column_names = ['start_station_id', 'end_station_id', 'started_at', 'ended_at', 'start_lat',
+                            'start_lng', 'end_lat', 'end_lng']
+            df = pd.read_csv(bike_data, usecols=column_names, parse_dates=['started_at'])
+        
+        df = df.dropna()
+
+        from_date = datetime.strptime(year+month, '%Y%m')
+        to_date = from_date + relativedelta(months=1)
+        df = df[(df['started_at'] >= from_date) & (df['started_at'] <= to_date)]
+        #labels = gpd.read_file(CITI_BIKE_STATION_SHAPE_URL)  # Replace with the actual URL for Citi Bike station shapefile
+        return self.build_network(df)
+
+
