@@ -1,0 +1,16 @@
+Pick the data provider that can be used to answer the following query.
+
+=== Query ===
+{{ user_query }}
+
+=== Data Providers ===
+{% for data_provider in data_providers %}
+provider_id: {{ data_provider.__name__ }}
+provider_documentation: {{ data_provider.__doc__ }}
+-----
+{% endfor %}
+
+=== Task ===
+Output a json message with two fields:
+`provider_id` - the provider id that can be used to answer the question above, or an empty string if none of the providers from the list can be used.
+`justification` - reasoning for the provider selection

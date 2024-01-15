@@ -1,8 +1,9 @@
-from sttn import constants
+import geopandas as gpd
 import networkx as nx
 import pandas as pd
-import geopandas as gpd
 import skmob
+
+from sttn import constants
 
 
 class SpatioTemporalNetwork:
@@ -50,11 +51,11 @@ class SpatioTemporalNetwork:
             raise KeyError('Edge ids {ids} are not in the node index'.format(ids=samples))
 
     @property
-    def nodes(self):
+    def nodes(self) -> gpd.GeoDataFrame:
         return self._nodes
 
     @property
-    def edges(self):
+    def edges(self) -> pd.DataFrame:
         return self._edges
 
     def agg_parallel_edges(self, column_aggs: dict, key: str = None):
@@ -90,18 +91,19 @@ class SpatioTemporalNetwork:
         dissolved = dissolved.set_index(self._node_id)
 
         node_mapping = nodes[[node_label]]
-        mapped_from = self._edges.join(node_mapping, on=self._origin)\
-            .drop(self._origin, axis=1)\
+        mapped_from = self._edges.join(node_mapping, on=self._origin) \
+            .drop(self._origin, axis=1) \
             .rename(columns={node_label: self._origin})
-        mapped_to = mapped_from.join(node_mapping, on=self._destination)\
-            .drop(self._destination, axis=1)\
+        mapped_to = mapped_from.join(node_mapping, on=self._destination) \
+            .drop(self._destination, axis=1) \
             .rename(columns={node_label: self._destination})
         return SpatioTemporalNetwork(nodes=dissolved, edges=mapped_to, origin=self._origin,
                                      destination=self._destination, node_id=self._node_id)
 
     def agg_adjacent_edges(self, aggs: dict, outgoing: bool = True, include_cycles: bool = True) -> pd.DataFrame:
         grouping_column = self._origin if outgoing else self._destination
-        edges = self._edges if include_cycles else self._edges[self._edges[self._origin] != self._edges[self._destination]]
+        edges = self._edges if include_cycles else self._edges[
+            self._edges[self._origin] != self._edges[self._destination]]
         grouped = edges.groupby(grouping_column).agg(aggs)
         return grouped.rename(columns={grouping_column: self._node_id})
 
@@ -117,7 +119,8 @@ class SpatioTemporalNetwork:
             raise ValueError(msg)
 
         ids_to_keep = self._nodes[condition].index
-        filtered_edges = self._edges[self._edges[self._origin].isin(ids_to_keep) & self._edges[self._destination].isin(ids_to_keep)]
+        filtered_edges = self._edges[
+            self._edges[self._origin].isin(ids_to_keep) & self._edges[self._destination].isin(ids_to_keep)]
         return SpatioTemporalNetwork(nodes=self._nodes[condition], edges=filtered_edges, origin=self._origin,
                                      destination=self._destination, node_id=self._node_id)
 
@@ -130,3 +133,15 @@ class SpatioTemporalNetwork:
         filtered_edges = self._edges[condition]
         return SpatioTemporalNetwork(nodes=self._nodes, edges=filtered_edges, origin=self._origin,
                                      destination=self._destination, node_id=self._node_id)
+
+    def to_parquet(self, path: str) -> None:
+        """Write a STTN to the Parquet format.
+        """
+        # ignore GeoPandas Parquet warnings
+        import warnings
+        warnings.filterwarnings('ignore', message='.*initial implementation of Parquet.*')
+
+        node_path = f"{path}-nodes.parquet"
+        edge_path = f"{path}-edges.parquet"
+        self._nodes.to_parquet(node_path)
+        self._edges.to_parquet(edge_path)

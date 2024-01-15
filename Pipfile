@@ -13,6 +13,9 @@ requests = "*"
 pyarrow = "*"
 scikit-mobility = "*"
 haversine = "*"
+keplergl = "*"
+jinja2 = "*"
+openai = "*"
 
 [dev-packages]
 pytest = "*"

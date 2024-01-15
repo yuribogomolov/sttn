@@ -1,13 +1,15 @@
 import pandas as pd
 
 from sttn import network
-from .data_provider import DataProvider
 from . import census
+from .data_provider import DataProvider
 
 
 class OriginDestinationEmploymentDataProvider(DataProvider):
-    """
-    Longitudinal Employer-Household Dynamics Origin-Destination Employment Statistics
+    """Longitudinal Employer-Household Dynamics Origin-Destination Employment Statistics
+    data provider. Every node represents a census tract and every edge contains the number
+    of people living in the origin and commuting to the destination tract.
+
     Data spec: https://lehd.ces.census.gov/data/lodes/LODES7/LODESTechDoc7.5.pdf
     """
 
@@ -39,7 +41,8 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
 
         # filter out edges for filtered nodes
         ids_to_keep = tracts_with_zip.index
-        filtered_edges = aggregated_edges[aggregated_edges.origin.isin(ids_to_keep) & aggregated_edges.destination.isin(ids_to_keep)]
+        filtered_edges = aggregated_edges[
+            aggregated_edges.origin.isin(ids_to_keep) & aggregated_edges.destination.isin(ids_to_keep)]
         return network.SpatioTemporalNetwork(nodes=tracts_with_zip, edges=filtered_edges)
 
     def get_data(self, state: str, year: int, part: str = 'main', job_type: int = 0) -> network.SpatioTemporalNetwork:

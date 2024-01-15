@@ -1,43 +1,76 @@
-import pandas as pd
+import os
+from datetime import datetime
+
 import geopandas as gpd
-import numpy as np
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet
-import os
+from dateutil.relativedelta import relativedelta
 
 from sttn import network
 from .data_provider import DataProvider
 
+TAXI_ZONE_SHAPE_URL = 'https://data.cityofnewyork.us/api/geospatial/d3c5-ddgc?method=export&format=Shapefile'
+
 
 class NycTaxiDataProvider(DataProvider):
+    """New York Taxi data provider, builds a network where nodes represent taxi zones and edges
+    represent taxi trips for a given month. Yellow and green taxi trip records include fields capturing
+    pick-up and drop-off dates/times, pick-up and drop-off locations, trip distances, itemized fares,
+    rate types, payment types, and driver-reported passenger counts."""
 
-    def build_network(self, taxi_trips, taxi_zones):
-        edges = taxi_trips.rename(columns={'PULocationID': 'origin', 'DOLocationID': 'destination', 'tpep_pickup_datetime': 'time'})
+    @staticmethod
+    def build_network(taxi_trips, taxi_zones) -> network.SpatioTemporalNetwork:
+        edges = taxi_trips.rename(
+            columns={'PULocationID': 'origin', 'DOLocationID': 'destination', 'tpep_pickup_datetime': 'time'})
         edges_casted = edges.astype({'origin': 'int64', 'destination': 'int64'})
-        taxi_zones = taxi_zones.rename(columns={'OBJECTID': 'id'})
+        taxi_zones = taxi_zones.rename(columns={'objectid': 'id'}).astype({'id': 'int32'})
         taxi_zones = taxi_zones.set_index('id')
         return network.SpatioTemporalNetwork(nodes=taxi_zones, edges=edges_casted)
 
-    def get_data(self, taxi_type, from_date, to_date):
-        taxi_data = self.cache_file('https://s3.amazonaws.com/nyc-tlc/trip+data/' + taxi_type + '_tripdata_2020-06.csv')
-        column_names = ['PULocationID', 'DOLocationID', 'tpep_pickup_datetime', 'passenger_count']
-        types = {'PULocationID': np.int32, 'DOLocationID': np.int32}
-        df = pd.read_csv(taxi_data, usecols=column_names, parse_dates=['tpep_pickup_datetime'], dtype=types)
+    def get_data(self, taxi_type: str, month: str) -> network.SpatioTemporalNetwork:
+        """
+        Retrieves New York City taxi data
+
+        Args:
+            taxi_type (str): String taxi type one of the following values:
+                'yellow' - Yellow taxi
+                'green' - Green taxi
+                'fhv' - For-Hire vehicles
+                'fhvhv' - High-volume for-hire vehicles
+            month (str): A string with year and month in the "YYYY-MM" format.
+                The earliest dataset is available for 2009.
+
+        Returns:
+            SpatioTemporalNetwork: An STTN network where node represent New York City taxi zones
+                and edges represent individual trips.
+        """
+        url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/{taxi_type}_tripdata_{month}.parquet'
+        taxi_data = self.cache_file(url)
+        column_names = ['PULocationID', 'DOLocationID', 'tpep_pickup_datetime', 'passenger_count', 'fare_amount']
+        df = pd.read_parquet(taxi_data, columns=column_names)
         df = df[(df['PULocationID'] > 0) & (df['PULocationID'] < 264)]
         df = df[(df['DOLocationID'] > 0) & (df['DOLocationID'] < 264)]
         df = df.dropna()
+
+        from_date = datetime.strptime(month, '%Y-%m')
+        to_date = from_date + relativedelta(months=1)
         df = df[(df['tpep_pickup_datetime'] >= from_date) & (df['tpep_pickup_datetime'] <= to_date)]
         df['passenger_count'] = df['passenger_count'].astype(int)
-        labels = gpd.read_file('https://s3.amazonaws.com/nyc-tlc/misc/taxi_zones.zip')
+        labels = gpd.read_file(TAXI_ZONE_SHAPE_URL)
         return self.build_network(df, labels)
 
 
 class Service311RequestsDataProvider(DataProvider):
+    """New York City 311 request data provider, builds a network where nodes represent zip codes
+     and every edge represents a 311 incident where origin and destination point to the node
+     where the incident happened."""
 
     def build_network(self, requests, nyc_zip_shape):
         requests['from'] = requests['Incident Zip']
         requests['to'] = requests['Incident Zip']
-        column_map = {'Latitude': 'latitude', 'Longitude': 'longitude', 'Complaint Type': 'complaint_type', 'Created Date': 'time', 'City': 'city'}
+        column_map = {'Latitude': 'latitude', 'Longitude': 'longitude', 'Complaint Type': 'complaint_type',
+                      'Created Date': 'time', 'City': 'city'}
         requests = requests.rename(columns=column_map)
         requests = requests.drop('Incident Zip', 1)
 
@@ -45,14 +78,15 @@ class Service311RequestsDataProvider(DataProvider):
         node_labels.columns = node_labels.columns.str.lower()
         node_labels = node_labels.rename(columns={'zipcode': 'id'})
         node_labels = node_labels.set_index('id')
-        return network.SpatioTemporalNetwork(requests, node_labels=node_labels)
+        return network.SpatioTemporalNetwork(nodes=node_labels, edges=requests)
 
     def get_data(self, from_date, to_date):
         data = self.cache_file('https://data.cityofnewyork.us/api/views/erm2-nwe9/rows.csv')
         column_names = ['Incident Zip', 'City', 'Latitude', 'Longitude', 'Complaint Type', 'Created Date']
         filtered_file = self.filter_requests(data, from_date, to_date, column_names)
 
-        nyc_shape = gpd.read_file('https://data.cityofnewyork.us/api/views/i8iw-xf4u/files/YObIR0MbpUVA0EpQzZSq5x55FzKGM2ejSeahdvjqR20?filename=ZIP_CODE_040114.zip')
+        nyc_shape = gpd.read_file(
+            'https://data.cityofnewyork.us/api/views/i8iw-xf4u/files/YObIR0MbpUVA0EpQzZSq5x55FzKGM2ejSeahdvjqR20?filename=ZIP_CODE_040114.zip')
         nyc_shape['ZIPCODE'] = nyc_shape['ZIPCODE'].astype(int)
         requests = pd.read_parquet(filtered_file)
         requests['Incident Zip'] = requests['Incident Zip'].astype(int)
@@ -60,7 +94,8 @@ class Service311RequestsDataProvider(DataProvider):
         return self.build_network(requests, nyc_shape)
 
     def filter_requests(self, requests_file, from_date, to_date, column_names):
-        arg_hash = self.hash_args(from_date=from_date.timestamp(), to_date=to_date.timestamp(), column_names=column_names)
+        arg_hash = self.hash_args(from_date=from_date.timestamp(), to_date=to_date.timestamp(),
+                                  column_names=column_names)
         local_filename = arg_hash + '.parquet'
         file_path = os.path.join(self.cache_dir(), local_filename)
 
