@@ -47,4 +47,8 @@ class STTNAnalyst:
         sttn = data_provider.get_data(**data_provider_args)
         context.sttn = sttn
 
+        analysis_code = NetworkBuilder.get_analysis_code(context=context)
+        print("Analysis code:")
+        print(analysis_code)
+
         return context

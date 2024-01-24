@@ -44,6 +44,19 @@ class NycTaxiDataProvider(DataProvider):
         Returns:
             SpatioTemporalNetwork: An STTN network where node represent New York City taxi zones
                 and edges represent individual trips.
+
+            The nodes dataframe contains the following columns:
+                'id' (int64) - taxi zone id
+                'borough' (str) - taxi zone borough
+                'zone' (str) - taxi zone name
+                'geometry' (shape) - shape object for the zone
+
+            The edges dataframe contains the following columns:
+                'origin' (int64) - trip origin taxi zone id
+                'destination' (int64) - trip destination taxi zone id
+                'time' (datetime64[ns]) - trip start time
+                'passenger_count' (int64) - number of passengers
+                'fare_amount' (float64) - trip fare
         """
         url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/{taxi_type}_tripdata_{month}.parquet'
         taxi_data = self.cache_file(url)
