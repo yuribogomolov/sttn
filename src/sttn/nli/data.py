@@ -66,6 +66,11 @@ class NetworkBuilder:
         return NetworkBuilder._get_completion(prompt=prompt)
 
     @staticmethod
+    def get_analysis_code(context: Context) -> Dict[str, str]:
+        prompt = NetworkBuilder._generate_data_analysis_prompt(context)
+        return NetworkBuilder._get_completion(prompt=prompt)
+
+    @staticmethod
     def _get_completion(prompt: str) -> Dict[str, str]:
         chat_completion = openai.chat.completions.create(
             messages=[
@@ -85,12 +90,12 @@ class NetworkBuilder:
     def _generate_provider_prompt(query: Query):
         environment = Environment(loader=PackageLoader("sttn", package_path="nli/templates"))
         template = environment.get_template("data_provider.j2")
-        context = {
+        jcontext = {
             "user_query": query.query,
             "data_providers": DATA_PROVIDERS,
         }
 
-        prompt = template.render(context)
+        prompt = template.render(jcontext)
         return prompt
 
     @staticmethod
@@ -100,11 +105,27 @@ class NetworkBuilder:
 
         environment = Environment(loader=PackageLoader("sttn", package_path="nli/templates"))
         template = environment.get_template("data_provider_arguments.j2")
-        context = {
+        jcontext = {
             "user_query": context.query.query,
-            "data_provider_description": data_provider.__doc__,
-            "data_provider_arguments": data_provider_instance.get_data.__doc__
+            "data_provider_documentation": data_provider.__doc__,
+            "data_description": data_provider_instance.get_data.__doc__
         }
 
-        prompt = template.render(context)
+        prompt = template.render(jcontext)
+        return prompt
+
+    @staticmethod
+    def _generate_data_analysis_prompt(context: Context):
+        data_provider = context.data_provider.__class__
+        data_provider_instance = context.data_provider
+
+        environment = Environment(loader=PackageLoader("sttn", package_path="nli/templates"))
+        template = environment.get_template("data_analysis.j2")
+        jcontext = {
+            "user_query": context.query.query,
+            "data_provider_documentation": data_provider.__doc__,
+            "data_description": data_provider_instance.get_data.__doc__
+        }
+
+        prompt = template.render(jcontext)
         return prompt

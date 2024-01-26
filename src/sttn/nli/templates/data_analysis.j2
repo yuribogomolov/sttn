@@ -1,0 +1,23 @@
+Generate valid Python code based on the input dateset to answer the following user query and data provider.
+
+=== Query ===
+{{ user_query }}
+
+=== Data Provider Documentation ===
+{{ data_provider_documentation }}
+
+=== Data Description ===
+{{ data_description }}
+
+=== Data Provider Arguments ===
+{{ data_provider_arguments }}
+
+=== Input Data ===
+The input data is stored in the `sttn` variable as a `SpatioTemporalNetwork` object created by the data provider described above.
+`sttn.nodes` returns a GeoPandas dataframe with nodes
+`sttn.edges` returns a Pandas dataframe with edges
+`sttn.to_multigraph()` returns a networkx multigraph object with edge attributes
+
+=== Task ===
+Print a valid json message with the following fields:
+`analysis_code` - Python code that returns the answer to the user query.
