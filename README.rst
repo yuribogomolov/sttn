@@ -7,7 +7,7 @@ STTN (spatio-temporal transactional network) is a generic data model to represen
 
 
 Introduction
-===========
+============
 
 Multiple real-world processes can be described by a list of transactions that include temporal and spatial dimensions, while transactions themself form a network between entities.
 Examples include credit card transactions, phone calls, taxi trips, social network interactions, and the list goes on and on. Defining a generic data model to represent these datasets allows to:
@@ -20,13 +20,13 @@ Examples include credit card transactions, phone calls, taxi trips, social netwo
 
 
 Installation
-===========
+============
 The latest library release and required dependencies can be installed from PyPI::
 
     pip install sttn
 
 Getting started
-===========
+===============
 
 Import one of the included data providers, for example::
 
