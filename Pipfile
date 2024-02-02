@@ -16,14 +16,14 @@ haversine = "*"
 keplergl = "*"
 jinja2 = "*"
 openai = "*"
-urllib3 = "1.26.18"
+urllib3 = "==1.26.18"
 
 [dev-packages]
 pytest = "*"
 pytest-cov = "*"
 ipython = "*"
 jupyter = "*"
-urllib3 = "1.26.18"
+urllib3 = "==1.26.18"
 
 [requires]
 python_version = "3.8"
