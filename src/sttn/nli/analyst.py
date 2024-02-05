@@ -48,7 +48,8 @@ class STTNAnalyst:
         context.sttn = sttn
 
         analysis_code = NetworkBuilder.get_analysis_code(context=context)
-        print("Analysis code:")
-        print(analysis_code)
+        prefix = "sttn = context.sttn\n"
+        analysis_code = prefix + analysis_code['analysis_code']
+        get_ipython().set_next_input(analysis_code)
 
         return context

@@ -1,4 +1,5 @@
 import json
+from json import JSONDecodeError
 from typing import Dict, Optional
 
 import openai
@@ -79,11 +80,16 @@ class NetworkBuilder:
                     "content": prompt,
                 }
             ],
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
+            response_format={"type": "json_object"},
         )
         content = chat_completion.choices[0].message.content
-        # print(f"Raw content: {content}")
-        content_js = json.loads(content)
+        try:
+            content_js = json.loads(content)
+        except JSONDecodeError as ex:
+            print(f"Invalid json: {content}")
+            raise ex
+
         return content_js
 
     @staticmethod
