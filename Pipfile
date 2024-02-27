@@ -6,14 +6,14 @@ name = "pypi"
 [packages]
 sttn = { editable = true, path = "." }
 pandas = "*"
-numpy = "*"
-networkx = "*"
-geopandas = "*"
+numpy = "1.24.4"
+networkx = "3.1"
+geopandas = "0.10.2"
 requests = "*"
 pyarrow = "*"
 scikit-mobility = "*"
 haversine = "*"
-keplergl = "*"
+keplergl = "==0.3.2"
 jinja2 = "*"
 openai = "*"
 urllib3 = "==1.26.18"
@@ -21,8 +21,7 @@ urllib3 = "==1.26.18"
 [dev-packages]
 pytest = "*"
 pytest-cov = "*"
-ipython = "*"
-jupyter = "*"
+notebook = "==6.5.6"
 urllib3 = "==1.26.18"
 
 [requires]
