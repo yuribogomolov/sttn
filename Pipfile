@@ -5,18 +5,19 @@ name = "pypi"
 
 [packages]
 sttn = { editable = true, path = "." }
-pandas = "*"
+pandas = "1.5.3"
 numpy = "1.24.4"
 networkx = "3.1"
 geopandas = "0.10.2"
-requests = "*"
-pyarrow = "*"
+requests = "2.31.0"
+pyarrow = "15.0.0"
 scikit-mobility = "*"
 haversine = "*"
-keplergl = "==0.3.2"
 jinja2 = "*"
-openai = "*"
+openai = "1.12.0"
 urllib3 = "==1.26.18"
+keplergl = "==0.3.2"
+notebook = "==6.5.6"
 
 [dev-packages]
 pytest = "*"
