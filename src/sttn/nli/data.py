@@ -4,11 +4,16 @@ from typing import Dict, Optional
 
 import openai
 from jinja2 import Environment, PackageLoader
+from langchain.output_parsers import PydanticOutputParser
+from langchain.prompts import PromptTemplate
+from langchain_core.messages.base import BaseMessage
+from langchain_openai import ChatOpenAI
 
 from sttn.data.lehd import OriginDestinationEmploymentDataProvider
 from sttn.data.nyc import NycTaxiDataProvider, Service311RequestsDataProvider
 from sttn.network import SpatioTemporalNetwork
 from sttn.nli import Query
+from sttn.nli.models.output import DataProviderModel, DataProviderArgumentsModel
 
 DATA_PROVIDERS = [NycTaxiDataProvider, Service311RequestsDataProvider, OriginDestinationEmploymentDataProvider]
 
@@ -55,21 +60,25 @@ class Context:
 
 
 class NetworkBuilder:
+    def __init__(self, model: ChatOpenAI):
+        self.model = model
 
-    @staticmethod
-    def pick_data_provider(context: Context) -> Dict[str, str]:
+    def pick_data_provider(self, context: Context) -> DataProviderModel:
+        parser = PydanticOutputParser(pydantic_object=DataProviderModel)
         prompt = NetworkBuilder._generate_provider_prompt(context.query)
-        return NetworkBuilder._get_completion(prompt=prompt)
+        chain = prompt | self.model | parser
+        return chain.invoke({})
 
-    @staticmethod
-    def pick_provider_arguments(context: Context) -> Dict[str, str]:
+    def pick_provider_arguments(self, context: Context) -> DataProviderArgumentsModel:
+        parser = PydanticOutputParser(pydantic_object=DataProviderArgumentsModel)
         prompt = NetworkBuilder._generate_data_retrieval_prompt(context)
-        return NetworkBuilder._get_completion(prompt=prompt)
+        chain = prompt | self.model | parser
+        return chain.invoke({})
 
-    @staticmethod
-    def get_analysis_code(context: Context) -> Dict[str, str]:
+    def get_analysis_code(self, context: Context) -> BaseMessage:
         prompt = NetworkBuilder._generate_data_analysis_prompt(context)
-        return NetworkBuilder._get_completion(prompt=prompt)
+        chain = prompt | self.model
+        return chain.invoke({})
 
     @staticmethod
     def _get_completion(prompt: str) -> Dict[str, str]:
@@ -93,7 +102,7 @@ class NetworkBuilder:
         return content_js
 
     @staticmethod
-    def _generate_provider_prompt(query: Query):
+    def _generate_provider_prompt(query: Query) -> PromptTemplate:
         environment = Environment(loader=PackageLoader("sttn", package_path="nli/templates"))
         template = environment.get_template("data_provider.j2")
         jcontext = {
@@ -101,11 +110,12 @@ class NetworkBuilder:
             "data_providers": DATA_PROVIDERS,
         }
 
-        prompt = template.render(jcontext)
+        prompt_str = template.render(jcontext)
+        prompt = PromptTemplate.from_template(prompt_str, template_format='jinja2')
         return prompt
 
     @staticmethod
-    def _generate_data_retrieval_prompt(context: Context):
+    def _generate_data_retrieval_prompt(context: Context) -> PromptTemplate:
         data_provider = context.data_provider.__class__
         data_provider_instance = context.data_provider
 
@@ -114,14 +124,15 @@ class NetworkBuilder:
         jcontext = {
             "user_query": context.query.query,
             "data_provider_documentation": data_provider.__doc__,
-            "data_description": data_provider_instance.get_data.__doc__
+            "data_description": data_provider_instance.get_data.__doc__,
         }
 
-        prompt = template.render(jcontext)
+        prompt_str = template.render(jcontext)
+        prompt = PromptTemplate.from_template(prompt_str, template_format='jinja2')
         return prompt
 
     @staticmethod
-    def _generate_data_analysis_prompt(context: Context):
+    def _generate_data_analysis_prompt(context: Context) -> PromptTemplate:
         data_provider = context.data_provider.__class__
         data_provider_instance = context.data_provider
 
@@ -130,8 +141,9 @@ class NetworkBuilder:
         jcontext = {
             "user_query": context.query.query,
             "data_provider_documentation": data_provider.__doc__,
-            "data_description": data_provider_instance.get_data.__doc__
+            "data_description": data_provider_instance.get_data.__doc__,
         }
 
-        prompt = template.render(jcontext)
+        prompt_str = template.render(jcontext)
+        prompt = PromptTemplate.from_template(prompt_str, template_format='jinja2')
         return prompt
