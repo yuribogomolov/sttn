@@ -1,8 +1,5 @@
-import json
-from json import JSONDecodeError
-from typing import Dict, Optional
+from typing import Optional
 
-import openai
 from jinja2 import Environment, PackageLoader
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
@@ -79,27 +76,6 @@ class NetworkBuilder:
         prompt = NetworkBuilder._generate_data_analysis_prompt(context)
         chain = prompt | self.model
         return chain.invoke({})
-
-    @staticmethod
-    def _get_completion(prompt: str) -> Dict[str, str]:
-        chat_completion = openai.chat.completions.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            model="gpt-3.5-turbo-1106",
-            response_format={"type": "json_object"},
-        )
-        content = chat_completion.choices[0].message.content
-        try:
-            content_js = json.loads(content)
-        except JSONDecodeError as ex:
-            print(f"Invalid json: {content}")
-            raise ex
-
-        return content_js
 
     @staticmethod
     def _generate_provider_prompt(query: Query) -> PromptTemplate:
