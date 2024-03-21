@@ -1,10 +1,8 @@
 from typing import Optional
 
 from jinja2 import Environment, PackageLoader
+from langchain.chains import LLMChain
 from langchain.output_parsers import PydanticOutputParser
-from langchain.prompts import PromptTemplate
-from langchain_core.messages.base import BaseMessage
-from langchain_openai import ChatOpenAI
 
 from sttn.data.lehd import OriginDestinationEmploymentDataProvider
 from sttn.data.nyc import NycTaxiDataProvider, Service311RequestsDataProvider
@@ -57,28 +55,33 @@ class Context:
 
 
 class NetworkBuilder:
-    def __init__(self, model: ChatOpenAI):
+    def __init__(self, model: LLMChain):
         self.model = model
 
     def pick_data_provider(self, context: Context) -> DataProviderModel:
         parser = PydanticOutputParser(pydantic_object=DataProviderModel)
         prompt = NetworkBuilder._generate_provider_prompt(context.query)
-        chain = prompt | self.model | parser
-        return chain.invoke({})
+        output = self.model.predict(human_input=prompt)
+        return parser.parse(output)
 
     def pick_provider_arguments(self, context: Context) -> DataProviderArgumentsModel:
         parser = PydanticOutputParser(pydantic_object=DataProviderArgumentsModel)
         prompt = NetworkBuilder._generate_data_retrieval_prompt(context)
-        chain = prompt | self.model | parser
-        return chain.invoke({})
+        output = self.model.predict(human_input=prompt)
+        return parser.parse(output)
 
-    def get_analysis_code(self, context: Context) -> BaseMessage:
+    def get_analysis_code(self, context: Context) -> str:
         prompt = NetworkBuilder._generate_data_analysis_prompt(context)
-        chain = prompt | self.model
-        return chain.invoke({})
+        output = self.model.predict(human_input=prompt)
+        return self._sanitize_output(output)
 
     @staticmethod
-    def _generate_provider_prompt(query: Query) -> PromptTemplate:
+    def _sanitize_output(text: str):
+        _, after = text.split("```python")
+        return after.split("```")[0]
+
+    @staticmethod
+    def _generate_provider_prompt(query: Query) -> str:
         environment = Environment(loader=PackageLoader("sttn", package_path="nli/templates"))
         template = environment.get_template("data_provider.j2")
         jcontext = {
@@ -87,11 +90,10 @@ class NetworkBuilder:
         }
 
         prompt_str = template.render(jcontext)
-        prompt = PromptTemplate.from_template(prompt_str, template_format='jinja2')
-        return prompt
+        return prompt_str
 
     @staticmethod
-    def _generate_data_retrieval_prompt(context: Context) -> PromptTemplate:
+    def _generate_data_retrieval_prompt(context: Context) -> str:
         data_provider = context.data_provider.__class__
         data_provider_instance = context.data_provider
 
@@ -104,11 +106,10 @@ class NetworkBuilder:
         }
 
         prompt_str = template.render(jcontext)
-        prompt = PromptTemplate.from_template(prompt_str, template_format='jinja2')
-        return prompt
+        return prompt_str
 
     @staticmethod
-    def _generate_data_analysis_prompt(context: Context) -> PromptTemplate:
+    def _generate_data_analysis_prompt(context: Context) -> str:
         data_provider = context.data_provider.__class__
         data_provider_instance = context.data_provider
 
@@ -121,5 +122,4 @@ class NetworkBuilder:
         }
 
         prompt_str = template.render(jcontext)
-        prompt = PromptTemplate.from_template(prompt_str, template_format='jinja2')
-        return prompt
+        return prompt_str

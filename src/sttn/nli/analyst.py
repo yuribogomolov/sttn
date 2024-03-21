@@ -1,5 +1,13 @@
 from typing import Optional
 
+from langchain.chains import LLMChain
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import (
+    ChatPromptTemplate,
+    HumanMessagePromptTemplate,
+    MessagesPlaceholder,
+)
+from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
 
 from sttn.nli import Query
@@ -10,7 +18,31 @@ class STTNAnalyst:
     def __init__(self):
         self._verbose = True
         self._model = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125")
-        self._network_builder = NetworkBuilder(model=self._model)
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                SystemMessage(
+                    content="You are a chatbot having a conversation with a human."
+                ),  # The persistent system prompt
+                MessagesPlaceholder(
+                    variable_name="chat_history"
+                ),  # Where the memory will be stored.
+                HumanMessagePromptTemplate.from_template(
+                    "{human_input}"
+                ),  # Where the human input will injected
+            ]
+        )
+
+        memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+        self._chain = LLMChain(
+            llm=self._model,
+            prompt=prompt,
+            verbose=True,
+            memory=memory,
+        )
+        self._network_builder = NetworkBuilder(model=self._chain)
+
+    def clarify(self, human_input: str) -> str:
+        return self._chain.predict(human_input=human_input)
 
     def chat(self, user_query: Optional[str] = None) -> Context:
         if user_query is None:
@@ -50,7 +82,7 @@ class STTNAnalyst:
         context.sttn = sttn
 
         analysis_code = self._network_builder.get_analysis_code(context=context)
-        content = analysis_code.content.replace("```python\n", "").replace("```", "")
+        content = analysis_code
         prefix = "sttn = context.sttn\n"
         analysis_code = prefix + content
         get_ipython().set_next_input(analysis_code)
