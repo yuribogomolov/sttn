@@ -11,12 +11,13 @@ from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
 
 from sttn.nli import Query
-from sttn.nli.data import NetworkBuilder, Context
+from sttn.nli.data import NetworkBuilder
+from sttn.nli.prompts import Context
 
 
 class STTNAnalyst:
-    def __init__(self):
-        self._verbose = True
+    def __init__(self, verbose: bool = False):
+        self._verbose = verbose
         self._model = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125")
         prompt = ChatPromptTemplate.from_messages(
             [
@@ -36,10 +37,11 @@ class STTNAnalyst:
         self._chain = LLMChain(
             llm=self._model,
             prompt=prompt,
-            verbose=True,
+            verbose=verbose,
             memory=memory,
         )
         self._network_builder = NetworkBuilder(model=self._chain)
+        self._context: Optional[Context] = None
 
     def clarify(self, human_input: str) -> str:
         return self._chain.predict(human_input=human_input)
@@ -50,6 +52,7 @@ class STTNAnalyst:
             user_query = input()
         query = Query(user_query)
         context = Context(query=query)
+        self._context = context
         data_provider = self._network_builder.pick_data_provider(context=context)
         provider_id = data_provider.provider_id
         provider_descr = data_provider.justification
@@ -65,6 +68,7 @@ class STTNAnalyst:
         context.data_provider = provider_id
         data_provider_args = self._network_builder.pick_provider_arguments(context)
         args_descr = data_provider_args.justification
+        context.data_provider_args = data_provider_args.arguments
 
         if not data_provider_args.feasible:
             print(f"Can not retrieve the data {args_descr}.")
@@ -83,8 +87,16 @@ class STTNAnalyst:
 
         analysis_code = self._network_builder.get_analysis_code(context=context)
         content = analysis_code
-        prefix = "sttn = context.sttn\n"
+        prefix = "sttn = analyst._context.sttn\n"
         analysis_code = prefix + content
+        context.analysis_code = content
+
         get_ipython().set_next_input(analysis_code)
+        result = get_ipython().run_cell(analysis_code)
+
+        if result.error_in_exec is not None:
+            fixed_code = self._network_builder.get_fixed_code(context=context, exc=result.error_in_exec)
+            get_ipython().set_next_input(fixed_code)
+            print(fixed_code)
 
         return context
