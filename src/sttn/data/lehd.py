@@ -68,9 +68,9 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
                 'origin' (int64) - origin Census tract id
                 'destination' (int64) - destination Census tract id
                 'S000' (int32) - Num Total number of jobs
-                'SA01' (int32) - Num Number of jobs of workers age 29 or younger12
-                'SA02' (int32) - Num Number of jobs for workers age 30 to 5412
-                'SA03' (int32) - Num Number of jobs for workers age 55 or older12
+                'SA01' (int32) - Num Number of jobs of workers age 29 or younger
+                'SA02' (int32) - Num Number of jobs for workers age 30 to 54
+                'SA03' (int32) - Num Number of jobs for workers age 55 or older
                 'SE01' (int32) - Num Number of jobs with earnings $1250/month or less
                 'SE02' (int32) - Num Number of jobs with earnings $1251/month to $3333/month
                 'SE03' (int32) - Num Number of jobs with earnings greater than $3333/month
