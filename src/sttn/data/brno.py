@@ -8,6 +8,10 @@ from sttn import constants
 from sttn import network
 from .data_provider import DataProvider
 
+PRAGUE_DISTRICT_CODES = ['CZ0101', 'CZ0102', 'CZ0103', 'CZ0104', 'CZ0105', 'CZ0106',
+                         'CZ0107', 'CZ0108', 'CZ0109', 'CZ010A']
+PRAGUE_CODE = 'CZ0100'
+
 
 class JourneyDataProvider(DataProvider):
     """Brno journey data provider. Builds a network where every node represents a city district
@@ -95,6 +99,10 @@ class HealthcareDataProvider(DataProvider):
         columns_to_rename = {"okres_residence": constants.ORIGIN,
                              "okres_servise": constants.DESTINATION, }
         renamed = edges.rename(columns=columns_to_rename)
+        # map Prague district codes to LAU1
+        prague_dict = {key: PRAGUE_CODE for key in PRAGUE_DISTRICT_CODES}
+        renamed[constants.ORIGIN] = renamed[constants.ORIGIN].replace(prague_dict)
+        renamed[constants.DESTINATION] = renamed[constants.DESTINATION].replace(prague_dict)
         return renamed
 
     @staticmethod
