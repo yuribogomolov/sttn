@@ -56,7 +56,7 @@ class NycTaxiDataProvider(DataProvider):
                 'destination' (int64) - trip destination taxi zone id
                 'time' (datetime64[ns]) - trip start time
                 'passenger_count' (int64) - number of passengers
-                'fare_amount' (float64) - trip fare
+                'fare_amount' (float64) - trip fare in USD
         """
         url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/{taxi_type}_tripdata_{month}.parquet'
         taxi_data = self.cache_file(url)
