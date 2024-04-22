@@ -1,0 +1,40 @@
+Generate filtering conditions to skip all the unnecessary data to answer the user query.
+
+=== Query ===
+{{ user_query }}
+
+=== Data Provider Documentation ===
+{{ data_provider_documentation }}
+
+=== Data Description ===
+{{ data_description }}
+
+=== Data Provider Arguments ===
+The following arguments were used to retrieve the `sttn` dataset below:
+{{ data_provider_arguments }}
+
+=== Supported Filtering Methods ===
+The input data is stored in the `sttn` variable as a `SpatioTemporalNetwork` object created by the data provider described above.
+Nodes and edges are represented as dataframes and may contain extra columns in addition to the index and origin/destination
+columns representing the network structure.
+`sttn.nodes` returns a GeoPandas dataframe with nodes and their geometry.
+Description:
+{{ nodes_description }}
+
+`sttn.edges` returns a Pandas dataframe with edges.
+Description:
+{{ edges_description }}
+
+=== Task ===
+If the user query requires only a subset of the input data generate code to filter out unnecessary records.
+Keep in mind that some data filtering was done at the Data provider level. Sections above contain the data provider
+documentation and arguments. E.g. if one of data provider arguments is state and we used `state = "CA"` as an argument
+then the input network contains only data for California.
+Output a YAML object with three fields:
+`node_filter` - a valid Pandas filtering condition (pd.Series) for network nodes. The condition can use only columns
+available in the node dataframe and it should be True for nodes that are required to answer the user query and False
+otherwise. If nodes can not be filtered out return an empty string.
+`edge_filter` -  a valid Pandas filtering condition (pd.Series) for network edges. The condition can use only columns
+available in the edges dataframe and it should be True for edges that are required to answer the user query and False
+otherwise. If edges can not be filtered out return an empty string.
+`filtered_description` - a detailed description of the filtered network, based on the documentation of data provider and applied filters

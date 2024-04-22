@@ -85,6 +85,10 @@ class STTNAnalyst:
         sttn = data_provider.get_data(**data_provider_args.arguments)
         context.sttn = sttn
 
+        filtering_code = self._network_builder.get_filtering_code(context=context)
+        # generated filtering predicates are used only as a chain-of-thought at this moment
+        print(filtering_code)
+
         analysis_code = self._network_builder.get_analysis_code(context=context)
         content = analysis_code
         prefix = "sttn = analyst._context.sttn\n"

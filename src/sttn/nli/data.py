@@ -22,6 +22,11 @@ class NetworkBuilder:
         output = self.model.predict(human_input=prompt)
         return parser.parse(output)
 
+    def get_filtering_code(self, context: Context) -> str:
+        prompt = PromptGenerator.generate_data_filtering_prompt(context)
+        output = self.model.predict(human_input=prompt)
+        return output
+
     def get_analysis_code(self, context: Context) -> str:
         prompt = PromptGenerator.generate_data_analysis_prompt(context)
         output = self.model.predict(human_input=prompt)
