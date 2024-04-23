@@ -81,7 +81,7 @@ class GeoMapLayer(MapLayer):
     def visual_channels(self) -> Dict[str, Any]:
         return {'colorField': {'name': self._color_column,
                                'type': 'real'},
-                'colorScale': 'quantile',
+                'colorScale': 'quantize',
                 'strokeColorField': None,
                 'strokeColorScale': 'quantile',
                 'sizeField': None,

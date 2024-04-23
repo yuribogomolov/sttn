@@ -10,14 +10,15 @@ Generate valid Python code based on the input dateset to answer the following us
 {{ data_description }}
 
 === Data Provider Arguments ===
+The following arguments were used to retrieve the `sttn` dataset below:
 {{ data_provider_arguments }}
 
 === Input Data ===
 The input data is stored in the `sttn` variable as a `SpatioTemporalNetwork` object created by the data provider described above.
-`sttn.nodes` returns a GeoPandas dataframe with nodes
+Dataset schema is described in the Data Provider Documentation section.
+`sttn.nodes` returns a GeoPandas dataframe with nodes and their geometry
 `sttn.edges` returns a Pandas dataframe with edges
 `sttn.to_multigraph()` returns a networkx multigraph object with edge attributes
 
 === Task ===
-Print a valid json message with the following fields:
-`analysis_code` - Python code that returns the answer to the user query.
+Return valid Python code that prints the answer to the user query.

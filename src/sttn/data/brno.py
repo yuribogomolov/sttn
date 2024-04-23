@@ -1,10 +1,16 @@
-import pandas as pd
-import geopandas as gpd
 import os
 
-from sttn import network
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+
 from sttn import constants
+from sttn import network
 from .data_provider import DataProvider
+
+PRAGUE_DISTRICT_CODES = ['CZ0101', 'CZ0102', 'CZ0103', 'CZ0104', 'CZ0105', 'CZ0106',
+                         'CZ0107', 'CZ0108', 'CZ0109', 'CZ010A']
+PRAGUE_CODE = 'CZ0100'
 
 
 class JourneyDataProvider(DataProvider):
@@ -21,7 +27,8 @@ class JourneyDataProvider(DataProvider):
         # keep only trips with known origin and destination
         trips_filtered = trips[~trips['start_kod'].isnull() & ~trips['cil_kod'].isnull()]
         # filter Brno trip levels (urban/suburban)
-        trips_filtered = trips_filtered[(trips_filtered['start_level'] == start_level) & (trips_filtered['cil_level'] == end_level)]
+        trips_filtered = trips_filtered[
+            (trips_filtered['start_level'] == start_level) & (trips_filtered['cil_level'] == end_level)]
         trips_filtered = trips_filtered.astype({"start_kod": int, "cil_kod": int})
         columns_to_rename = {"start_cas": "start_hr", "cil_cas": "end_hr", "start_kod": constants.ORIGIN,
                              "cil_kod": constants.DESTINATION, "pocet": "count", "cz": "is_czech",
@@ -44,7 +51,8 @@ class JourneyDataProvider(DataProvider):
     @staticmethod
     def read_edges(journey_csv_folder: str, start_level: int, end_level: int) -> pd.DataFrame:
         edge_files = os.listdir(journey_csv_folder)
-        edge_dfs = [JourneyDataProvider.read_trip_file(f"{journey_csv_folder}/{fname}", start_level, end_level) for fname in edge_files if
+        edge_dfs = [JourneyDataProvider.read_trip_file(f"{journey_csv_folder}/{fname}", start_level, end_level) for
+                    fname in edge_files if
                     fname.endswith(".csv")]
         return pd.concat(edge_dfs)
 
@@ -61,8 +69,48 @@ class JourneyDataProvider(DataProvider):
         return converted
 
     @staticmethod
-    def get_data(journey_csv_folder: str, shapefile_name: str, start_level: int = 1, end_level: int = 1) -> network.SpatioTemporalNetwork:
+    def get_data(journey_csv_folder: str, shapefile_name: str, start_level: int = 1,
+                 end_level: int = 1) -> network.SpatioTemporalNetwork:
         nodes = JourneyDataProvider.read_nodes(shapefile_name)
         edges = JourneyDataProvider.read_edges(journey_csv_folder, start_level=start_level, end_level=end_level)
         sttn_network = network.SpatioTemporalNetwork(nodes=nodes, edges=edges)
         return sttn_network
+
+
+class HealthcareDataProvider(DataProvider):
+
+    @staticmethod
+    def get_data(data_folder: str) -> network.SpatioTemporalNetwork:
+        nodes = HealthcareDataProvider.read_nodes(f"{data_folder}/lau1.geojson")
+        edges = HealthcareDataProvider.read_edges(f"{data_folder}/healthcare.parquet")
+
+        ids_to_keep = nodes.index
+        edges = edges[
+            edges.origin.isin(ids_to_keep) & edges.destination.isin(ids_to_keep)]
+
+        nodes_to_keep = np.union1d(edges.origin.unique(), edges.destination.unique())
+        nodes = nodes[nodes.index.isin(nodes_to_keep)]
+        sttn_network = network.SpatioTemporalNetwork(nodes=nodes, edges=edges)
+        return sttn_network
+
+    @staticmethod
+    def read_edges(data_file: str) -> pd.DataFrame:
+        edges = pd.read_parquet(data_file)
+        columns_to_rename = {"okres_residence": constants.ORIGIN,
+                             "okres_servise": constants.DESTINATION, }
+        renamed = edges.rename(columns=columns_to_rename)
+        # map Prague district codes to LAU1
+        prague_dict = {key: PRAGUE_CODE for key in PRAGUE_DISTRICT_CODES}
+        renamed[constants.ORIGIN] = renamed[constants.ORIGIN].replace(prague_dict)
+        renamed[constants.DESTINATION] = renamed[constants.DESTINATION].replace(prague_dict)
+        return renamed
+
+    @staticmethod
+    def read_nodes(geojson_file: str) -> gpd.GeoDataFrame:
+        nodes = gpd.read_file(geojson_file)
+        columns_to_keep = ["lau", "name", "geometry"]
+        nodes = nodes[columns_to_keep]
+        column_names = {"lau": constants.NODE_ID}
+        renamed = nodes.rename(columns=column_names)
+        converted = renamed.set_index(constants.NODE_ID).to_crs(epsg=4326)
+        return converted
