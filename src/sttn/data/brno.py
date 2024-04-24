@@ -81,9 +81,9 @@ class HealthcareDataProvider(DataProvider):
     """
     Czech Republic healthcare data provider. Builds a network where every node represents a Czech Republic district
     and every edge contains aggregated patients information where the origin is the residence of patients, and 
-    the destination is a healthcare facility district they commuted to. The provider has information on how many visits happened
-    in a specific month of the year for different specializations and ICD-10 disease categories. The dataset covers 13 years 
-    of monthly data from 01-2010 to 12-2022.   
+    the destination is a healthcare facility district they commuted to. The provider gives information on how many visits
+    happened from origin to destination districts in a specific month of the year for different specializations and ICD-10
+    disease categories. The dataset covers 13 years of monthly data from 2010-01 to 2022-12. 
     """
     @staticmethod
     def get_data(data_folder: str) -> network.SpatioTemporalNetwork:
@@ -108,7 +108,8 @@ class HealthcareDataProvider(DataProvider):
                 'month_visit' (int) - patients' month of visit
                 'specialization' (int) - patients' treatment medical branch specialization number
                 'icd10_category' (int) -patients' disease ICD10 category number
-                'number_of_visits' (int) - patients' number of visits
+                'number_of_visits' (int) - total number of patients who visited from a residence district to a healthcare facility,
+                                           grouped by medical specialization and disease category
 
         
         """
