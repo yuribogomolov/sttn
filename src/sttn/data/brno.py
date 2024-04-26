@@ -78,9 +78,42 @@ class JourneyDataProvider(DataProvider):
 
 
 class HealthcareDataProvider(DataProvider):
-
+    """
+    Czech Republic healthcare data provider. Builds a network where every node represents a Czech Republic district
+    and every edge contains aggregated patients information where the origin is the residence of patients, and 
+    the destination is a healthcare facility district they commuted to. The provider gives information on how many visits
+    happened from origin to destination districts in a specific month of the year for different specializations and ICD-10
+    disease categories. The dataset covers 13 years of monthly data from 2010-01 to 2022-12. 
+    """
     @staticmethod
     def get_data(data_folder: str) -> network.SpatioTemporalNetwork:
+        """
+        Retrieves Czech Republic Healthcare data. 
+        Args:
+            data_folder (str): path to the data folder
+
+        Returns:
+            SpatioTemporalNetwork: An STTN network where nodes represent the Czech Republic districts 
+                (also called 'okres'), and edges represent the patients' treatment mobility and details.
+
+            The nodes dataframe contains the following columns:
+                'id' (str) - district LAU code
+                'name' (str) - district name
+                'geometry' (shape) - shape object for the district
+
+            The edges dataframe contains the following columns:
+                'origin' (str) - patients' residence district id
+                'destination' (str) - patients' medical facility district id
+                'year_visit' (int) - patients' year of visit
+                'month_visit' (int) - patients' month of visit
+                'specialization' (int) - patients' treatment medical branch specialization number
+                'icd10_category' (int) -patients' disease ICD10 category number
+                'number_of_visits' (int) - total number of patients who visited from a residence district to a healthcare facility,
+                                           grouped by medical specialization and disease category
+
+        
+        """
+      
         nodes = HealthcareDataProvider.read_nodes(f"{data_folder}/lau1.geojson")
         edges = HealthcareDataProvider.read_edges(f"{data_folder}/healthcare.parquet")
 

@@ -46,7 +46,15 @@ class Context:
     @sttn.setter
     def sttn(self, sttn: SpatioTemporalNetwork):
         self._sttn = sttn
-
+    
+    @property
+    def data_provider_id(self):
+        return self._data_provider_id
+    
+    @data_provider_id.setter
+    def data_provider_id(self, data_provider_id: str):
+        self._data_provider_id = data_provider_id
+        
     @property
     def data_provider_args(self):
         return self._data_provider_args
