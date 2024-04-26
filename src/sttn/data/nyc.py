@@ -5,6 +5,7 @@ import geopandas as gpd
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet
+import numpy as np
 from dateutil.relativedelta import relativedelta
 
 from sttn import network
@@ -134,5 +135,155 @@ class Service311RequestsDataProvider(DataProvider):
             if pqwriter:
                 pqwriter.close()
             os.rename(tmp_file_path, file_path)
-
+            
         return file_path
+
+
+class RestaurantInspectionDataProvider(DataProvider):
+    """New York City Restaurant Inspections data provider builds a bipartite network where the 
+     first type of nodes represents restaurants (establishments), the second type of nodes 
+     represents types of inspection, and every edge represents an inspection details where the
+     origin is the inspection type, and destination is the restaurant where the inspection happened."""
+  
+    @staticmethod
+    def get_data(self, from_date: str, to_date: str) -> network.SpatioTemporalNetwork:
+        """
+        Retrieves New York City Restaurant Inspections data
+
+        Args:
+            from_date (str): A string with year and month and in the "YYYY-MM-DD" format.
+            Specifies the start date to get data from
+            
+            to_date (str): A string with year, month, and day in the "YYYY-MM-DD" format.
+            Specifies the end date to get data from
+                
+
+        Returns:
+            SpatioTemporalNetwork: An STTN network where the first type of nodes represents restaurants (establishments),
+                second type of nodes represents types of inspection, and edges represent inspections.
+            
+            The nodes dataframe contains the following columns:
+                'ID' (str) - represents either restaurant id, also referred as 'camis', or an inspection type which 
+                             is a combination of the inspection program and the type of inspection performed
+                'IS_RESTAURANT' (bool) - boolean column representing whether the specific row is 
+                                         referring to a restaurant (True) or an inspection type (False) 
+                'NAME' (str) - restaurant name, also referred as DBA ('doing business as')
+                'BORO' (str) - restaurant location borough
+                'BUILDING' (str) - restaurant location building code
+                'STREET' (str) - restaurant location street name
+                'ZIPCODE' (float32) - restaurant location zip code
+                'PHONE' (float32) - restaurant phone number
+                'CUISINE_DESCRIPTION' (str) - restaurant cuisine description
+                'COUNCIL_DISTRICT' (float32) - restaurant council district number
+                'CENSUS_TRACT' (float32) - restaurant census tract number
+                'COMMUNITY_BOARD' (float32) - restaurant community board number
+                'BIN' (float32) - restaurant Building Identification Number
+                'BBL' (float32) - restaurant Borough-Block-and-Lot number
+                'NTA' (str) - restaurant Neighborhood Tabulation Area code
+                'geometry' (geometry) - geometry object for the restaurant location
+                
+
+            The edges dataframe contains the following columns:
+                'ORIGIN' (str) - the inspection type executed
+                'DESTINATION' (str) - inspected restaurant id
+                'INSPECTION_DATE' (datetime64[ns]) - inspection date
+                'ACTION' (str) - action associated with each restaurant inspection
+                'VIOLATION_CODE' (str) - violation code associated with a restaurant inspection
+                'VIOLATION_DESCRIPTION' (str) - violation description associated with an
+                                                establishment (restaurant) inspection
+                'CRITICAL_FLAG' (str) - indicator of critical violation
+                'SCORE' (float32) - total score for a particular inspection
+                'GRADE' (str) - grade associated with the inspection
+                'GRADE_DATE' (datetime64[ns]) - the date when the grade was issued to the establishment (restaurant)
+                'RECORD_DATE' (datetime64[ns]) - the date when the record was added to the dataset
+       
+        """
+        url = 'https://data.cityofnewyork.us/api/views/43nn-pn8j/rows.csv?accessType=DOWNLOAD'
+        rest_ins_data = self.cache_file(url)
+        df = pd.read_csv(rest_ins_data,
+                        parse_dates=['INSPECTION DATE', 'RECORD DATE', 'GRADE DATE'],
+                        infer_datetime_format=True)
+
+        df = format_data(df, from_date, to_date)
+
+        return build_network(df)
+
+
+    def format_data(self, df: pd.DataFrame, from_date: str, to_date: str):
+        """Format and clean the data."""
+
+        # Drop values with unknown latitude and longitude
+        df = df.loc[~((df['Latitude'].isna()) | (df['Longitude'].isna())
+                |(df['Latitude'].round() == 0) | (df['Longitude'].round() == 0))]
+        df = df.drop(columns=['Location Point1'])
+
+        # Drop values where INSPECTION DATE == 01.01.1900 (which means they didn't have an inspection yet)
+        df = df.loc[df['INSPECTION DATE'] != '01.01.1900']
+        
+        # Filter by INSPECTION DATE
+        df = df.loc[(df['INSPECTION DATE'] >= from_date) & (df['INSPECTION DATE'] <= to_date)]
+        
+        # Change 0's and empty phone numbers to NaNs in BORO and PHONE
+        df.loc[:, 'BORO'] = df['BORO'].map({0:np.nan})
+        df.loc[:, 'PHONE'] = df['PHONE'].map({'__________': np.nan}).astype(np.float32)
+        
+        # Uppercase column names and replace spaces with underscore
+        df.columns = df.columns.str.upper().str.strip().str.replace(' ', '_')
+        
+        # Change the names of some columns to more straightforward ones
+        df = df.rename(columns={'CAMIS': 'ID',#'id',
+                                'DBA': 'NAME'})
+        return df
+
+
+    def build_network(self, df: pd.DataFrame) -> network.SpatioTemporalNetwork:
+        """Build an STTN network from filtered data."""
+
+        # Separate features for edges and two types of nodes
+        rest_node_features = ['ID', 'NAME', 'BORO', 'BUILDING', 'STREET', 'ZIPCODE', 'PHONE',
+            'CUISINE_DESCRIPTION', 'LATITUDE', 'LONGITUDE', 'COMMUNITY_BOARD',
+            'COUNCIL_DISTRICT', 'CENSUS_TRACT', 'BIN', 'BBL', 'NTA']
+        insp_node_features = ['INSPECTION_TYPE']
+        edge_features = ['ID', 'INSPECTION_TYPE','INSPECTION_DATE', 'ACTION', 'VIOLATION_CODE', 'VIOLATION_DESCRIPTION',
+            'CRITICAL_FLAG', 'SCORE', 'GRADE', 'GRADE_DATE', 'RECORD_DATE',
+            ]
+
+        # Geodf with restaurants
+        gdf_rest_nodes = df.loc[:, rest_node_features]
+        gdf_rest_nodes.loc[:, 'IS_REST'] = True
+        gdf_rest_nodes = gpd.GeoDataFrame(
+          gdf_rest_nodes.drop(columns=['LATITUDE','LONGITUDE']),
+          geometry=gpd.points_from_xy(x=gdf_rest_nodes['LATITUDE'], y=gdf_rest_nodes['LONGITUDE'])
+          )
+        gdf_rest_nodes.loc[:, 'ID'] = gdf_rest_nodes['ID'].astype(str)
+        
+        # df with inspection types
+        df_insp_nodes = df.loc[:, insp_node_features]
+        df_insp_nodes = df_insp_nodes.rename(columns={'INSPECTION_TYPE':'ID'})
+
+        # Geodf with all nodes
+        gdf_nodes = pd.concat([gdf_rest_nodes, df_insp_nodes], join='outer', ignore_index=True)
+
+        # Fill NaNs in IS_REST with False
+        gdf_nodes.loc[:, 'IS_REST'] = gdf_nodes['IS_REST'].fillna(False)
+
+        # Set ID as index
+        gdf_nodes = gdf_nodes.set_index('ID')
+
+        # df with edges
+        df_edges = df.loc[:, edge_features]
+        df_edges.loc[:, 'ORIGIN'] = df_edges['INSPECTION_TYPE']
+        df_edges.loc[:, 'DESTINATION'] = df_edges['ID'].astype(str)
+        df_edges = df_edges.drop(columns=['ID', 'INSPECTION_TYPE'])
+
+        # Downcast float64 to float32 to reduce memory footprint
+        for col in gdf_nodes.select_dtypes(include=['float64']).columns:
+              gdf_nodes[col] = gdf_nodes[col].astype('float32')
+        for col in df_edges.select_dtypes(include=['float64']).columns:
+              df_edges[col] = df_edges[col].astype('float32')
+
+        return network.SpatioTemporalNetwork(nodes=gdf_nodes,
+                                            edges=df_edges,
+                                            origin='ORIGIN',
+                                            destination='DESTINATION',
+                                            node_id='ID')
