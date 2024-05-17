@@ -16,9 +16,9 @@ from sttn.nli.prompts import Context
 
 
 class STTNAnalyst:
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = False, model_name: str = "gpt-4o"):
         self._verbose = verbose
-        self._model = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125")
+        self._model = ChatOpenAI(temperature=0, model_name=model_name)
         prompt = ChatPromptTemplate.from_messages(
             [
                 SystemMessage(
@@ -42,6 +42,7 @@ class STTNAnalyst:
         )
         self._network_builder = NetworkBuilder(model=self._chain)
         self._context: Optional[Context] = None
+        self._model_name: str = model_name
 
     def clarify(self, human_input: str) -> str:
         return self._chain.predict(human_input=human_input)

@@ -85,7 +85,20 @@ class PromptGenerator:
     @staticmethod
     def get_df_description(df: pd.DataFrame) -> str:
         schema_str = ""
-        schema_str += "\n".join([f"{col:20}: {dtype}" for col, dtype in df.dtypes.items()])
+        for col, dtype in df.dtypes.items():
+            if dtype.name == 'geometry':
+                schema_str += f"{col}: geometry\n"
+            elif pd.api.types.is_numeric_dtype(dtype):
+                # Calculate min, max, and mean for numeric columns
+                min_val = df[col].min()
+                max_val = df[col].max()
+                mean_val = df[col].mean()
+                schema_str += f"{col:20}: {dtype} - Min: {min_val}, Max: {max_val}, Avg: {mean_val:.2f}\n"
+            else:
+                # Find the 5 most common values for string columns
+                common_vals = df[col].value_counts().head(5)
+                common_vals_str = ", ".join([f"{val} ({count})" for val, count in common_vals.items()])
+                schema_str += f"{col:20}: {dtype} - Most common values: {common_vals_str}\n"
         return schema_str
 
     @staticmethod
