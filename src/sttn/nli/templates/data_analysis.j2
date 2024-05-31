@@ -14,11 +14,31 @@ The following arguments were used to retrieve the `sttn` dataset below:
 {{ data_provider_arguments }}
 
 === Input Data ===
-The input data is stored in the `sttn` variable as a `SpatioTemporalNetwork` object created by the data provider described above.
-Dataset schema is described in the Data Provider Documentation section.
-`sttn.nodes` returns a GeoPandas dataframe with nodes and their geometry
-`sttn.edges` returns a Pandas dataframe with edges
-`sttn.to_multigraph()` returns a networkx multigraph object with edge attributes
+The input data is stored in the `sttn_network` variable as a `SpatioTemporalNetwork` object created by the data provider described above.
+Dataset schema is described in the Data Provider Documentation section. If analysis can be done using SpatioTemporalNetwork methods, prioritize using them:
+
+SpatioTemporalNetwork methods:
+filter_nodes(self, condition: pd.Series) -> SpatioTemporalNetwork:
+    return a new SpatioTemporalNetwork without nodes where the input node condition is False, and adjacent edges.
+
+filter_edges(self, condition: pd.Series) -> SpatioTemporalNetwork:
+    return a new SpatioTemporalNetwork without edges where the input edge condition is False.
+
+sttn.plot module supports plotting functions:
+choropleth(sttn_network: SpatioTemporalNetwork, node_layers: Optional[List[str]] = None)
+    Returns a choropleth map plot with one layer for each provided node layer. All node layers should correspond to node columns available in sttn_network.nodes.
+
+sttn.algorithms.community.detection module has community detection methods:
+combo_communities(data: SpatioTemporalNetwork, weight: Optional[str] = None, **combo_kwargs) -> SpatioTemporalNetwork
+    Runs community detection using the combo algorithm and returns a SpatioTemporalNetwork` object, where network nodes
+    have one extra column of integer type: 'cluster', corresponding to the detected community number for a given node.
+    `weight` - name of the edge attribute that should be used as a weight
+
+Analytics that is not available in SpatioTemporalNetwork can be done by working with nodes and edges directly:
+`sttn_network.nodes` returns a GeoPandas dataframe with nodes and their geometry
+`sttn_network.edges` returns a Pandas dataframe with edges
+`sttn_network.to_multigraph()` returns a networkx multigraph object with edge attributes
 
 === Task ===
-Return valid Python code that prints the answer to the user query.
+Return valid Python code that computes the answer to the user query. The code will be executed from a Jupyter notebook,
+and the last command should returns the answer to the user query: a number, a Pandas dataframe, or a requested plot.

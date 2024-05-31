@@ -83,8 +83,8 @@ class STTNAnalyst:
 
         if self._verbose:
             print(f"Retrieving the data using {provider_id} provider with the following arguments {data_provider_args}")
-        sttn = data_provider.get_data(**data_provider_args.arguments)
-        context.sttn = sttn
+        network = data_provider.get_data(**data_provider_args.arguments)
+        context.network = network
 
         filtering_code = self._network_builder.get_filtering_code(context=context)
         # generated filtering predicates are used only as a chain-of-thought at this moment
@@ -92,7 +92,7 @@ class STTNAnalyst:
 
         analysis_code = self._network_builder.get_analysis_code(context=context)
         content = analysis_code
-        prefix = "sttn = analyst._context.sttn\n"
+        prefix = "sttn_network = analyst._context.network\n"
         analysis_code = prefix + content
         context.analysis_code = content
 
@@ -103,5 +103,7 @@ class STTNAnalyst:
             fixed_code = self._network_builder.get_fixed_code(context=context, exc=result.error_in_exec)
             get_ipython().set_next_input(fixed_code)
             print(fixed_code)
+        else:
+            context.result = result.result
 
         return context

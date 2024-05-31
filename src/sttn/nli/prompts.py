@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Any, Optional, Dict
 from sttn.network import SpatioTemporalNetwork
 from jinja2 import Environment, PackageLoader, Template
 
@@ -23,7 +23,12 @@ class Context:
 
         self._analysis_code: Optional[str] = None
 
-        self._sttn: Optional[SpatioTemporalNetwork] = None
+        self._network: Optional[SpatioTemporalNetwork] = None
+
+        self._result: Optional[Any] = None
+
+        import sttn.algorithms.community.detection
+        import sttn.plot
 
     @property
     def query(self):
@@ -40,13 +45,21 @@ class Context:
         self._data_provider_instance = self._data_provider_cls()
 
     @property
-    def sttn(self):
-        return self._sttn
+    def network(self):
+        return self._network
 
-    @sttn.setter
-    def sttn(self, sttn: SpatioTemporalNetwork):
-        self._sttn = sttn
-    
+    @network.setter
+    def network(self, network: SpatioTemporalNetwork):
+        self._network = network
+
+    @property
+    def result(self):
+        return self._result
+
+    @result.setter
+    def result(self, result: Any):
+        self._result = result
+
     @property
     def data_provider_id(self):
         return self._data_provider_id
@@ -139,8 +152,8 @@ class PromptGenerator:
 
         data_provider = context.data_provider.__class__
         data_provider_instance = context.data_provider
-        nodes_description = PromptGenerator.get_df_description(context.sttn.nodes)
-        edges_description = PromptGenerator.get_df_description(context.sttn.edges)
+        nodes_description = PromptGenerator.get_df_description(context.network.nodes)
+        edges_description = PromptGenerator.get_df_description(context.network.edges)
 
         jcontext = {
             "user_query": context.query.query,
