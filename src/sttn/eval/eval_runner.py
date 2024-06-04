@@ -151,7 +151,7 @@ if __name__ == "__main__":
         'model_name': f'{model_name}'
     }
     
-    notebook_path = 'NLQ_eval_runnable.ipynb'
+    notebook_path = 'analyst_eval.ipynb'
     result_link = run_notebook(notebook_path, parameters)
     print(result_link)
     print("------------------You can view the evaluation results by clicking on the link above------------------")
