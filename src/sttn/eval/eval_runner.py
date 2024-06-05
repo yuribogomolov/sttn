@@ -154,6 +154,6 @@ if __name__ == "__main__":
     notebook_path = 'analyst_eval.ipynb'
     result_link = run_notebook(notebook_path, parameters)
     print(result_link)
-    print("------------------You can view the evaluation results by clicking on the link above------------------")
+    print("------------------You can also view the evaluation results by using the LangSmith link above------------------")
 
 
