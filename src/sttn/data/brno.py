@@ -3,14 +3,17 @@ import os
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import pyarrow.dataset as ds
 
 from sttn import constants
 from sttn import network
+from typing import Optional
 from .data_provider import DataProvider
 
 PRAGUE_DISTRICT_CODES = ['CZ0101', 'CZ0102', 'CZ0103', 'CZ0104', 'CZ0105', 'CZ0106',
                          'CZ0107', 'CZ0108', 'CZ0109', 'CZ010A']
 PRAGUE_CODE = 'CZ0100'
+HEALTHCARE_DATA_VAR = "STTN_CZ_HEALTH_DATA"
 
 
 class JourneyDataProvider(DataProvider):
@@ -86,19 +89,19 @@ class HealthcareDataProvider(DataProvider):
     disease categories. The dataset covers 13 years of monthly data from 2010-01 to 2022-12. 
     """
     @staticmethod
-    def get_data(data_folder: str) -> network.SpatioTemporalNetwork:
+    def get_data(year: Optional[str], data_folder: Optional[str] = None) -> network.SpatioTemporalNetwork:
         """
         Retrieves Czech Republic Healthcare data. 
         Args:
-            data_folder (str): path to the data folder
+            year (year): 4-digit year of healthcare data
 
         Returns:
             SpatioTemporalNetwork: An STTN network where nodes represent the Czech Republic districts 
                 (also called 'okres'), and edges represent the patients' treatment mobility and details.
 
             The nodes dataframe contains the following columns:
-                'id' (str) - district LAU code
-                'name' (str) - district name
+                'id' (str) - district LAU code, Pandas index column
+                'name' (str) - district names
                 'geometry' (shape) - shape object for the district
 
             The edges dataframe contains the following columns:
@@ -113,9 +116,13 @@ class HealthcareDataProvider(DataProvider):
 
         
         """
+        folder_env = os.getenv(HEALTHCARE_DATA_VAR)
+        folder = data_folder or folder_env
+        if folder is None:
+            raise ValueError(f"data_folder provider argument and {HEALTHCARE_DATA_VAR} variable are not set")
       
-        nodes = HealthcareDataProvider.read_nodes(f"{data_folder}/lau1.geojson")
-        edges = HealthcareDataProvider.read_edges(f"{data_folder}/healthcare.parquet")
+        nodes = HealthcareDataProvider.read_nodes(f"{folder}/lau1.geojson")
+        edges = HealthcareDataProvider.read_edges(year=int(year), data_file=f"{folder}/healthcare.parquet")
 
         ids_to_keep = nodes.index
         edges = edges[
@@ -127,8 +134,14 @@ class HealthcareDataProvider(DataProvider):
         return sttn_network
 
     @staticmethod
-    def read_edges(data_file: str) -> pd.DataFrame:
-        edges = pd.read_parquet(data_file)
+    def read_edges(year: Optional[int], data_file: str) -> pd.DataFrame:
+        dataset = ds.dataset(data_file, format='parquet')
+        if not year is None:
+            table = dataset.to_table(filter=ds.field('year_visit') == year)
+        else:
+            table = dataset.to_table()
+
+        edges = table.to_pandas()
         columns_to_rename = {"okres_residence": constants.ORIGIN,
                              "okres_servise": constants.DESTINATION, }
         renamed = edges.rename(columns=columns_to_rename)

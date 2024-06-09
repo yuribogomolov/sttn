@@ -14,13 +14,13 @@ class NetworkBuilder:
         parser = PydanticOutputParser(pydantic_object=DataProviderModel)
         prompt = PromptGenerator.generate_provider_prompt(context.query)
         output = self.model.predict(human_input=prompt)
-        return parser.parse(output)
+        return parser.parse(self._sanitize_json_output(output))
 
     def pick_provider_arguments(self, context: Context) -> DataProviderArgumentsModel:
         parser = PydanticOutputParser(pydantic_object=DataProviderArgumentsModel)
         prompt = PromptGenerator.generate_data_retrieval_prompt(context)
         output = self.model.predict(human_input=prompt)
-        return parser.parse(output)
+        return parser.parse(self._sanitize_json_output(output))
 
     def get_filtering_code(self, context: Context) -> str:
         prompt = PromptGenerator.generate_data_filtering_prompt(context)
@@ -41,6 +41,11 @@ class NetworkBuilder:
     @staticmethod
     def _sanitize_output(text: str) -> str:
         _, after = text.split("```python")
+        return after.split("```")[0]
+
+    @staticmethod
+    def _sanitize_json_output(text: str) -> str:
+        _, after = text.split("```json")
         return after.split("```")[0]
 
     @staticmethod
