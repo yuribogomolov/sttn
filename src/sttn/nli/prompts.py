@@ -3,12 +3,13 @@ from sttn.network import SpatioTemporalNetwork
 from jinja2 import Environment, PackageLoader, Template
 
 from sttn.nli import Query
+from sttn.data.brno import HealthcareDataProvider
 from sttn.data.lehd import OriginDestinationEmploymentDataProvider
 from sttn.data.nyc import NycTaxiDataProvider, Service311RequestsDataProvider
 
 import pandas as pd
 
-DATA_PROVIDERS = [NycTaxiDataProvider, Service311RequestsDataProvider, OriginDestinationEmploymentDataProvider]
+DATA_PROVIDERS = [NycTaxiDataProvider, Service311RequestsDataProvider, OriginDestinationEmploymentDataProvider, HealthcareDataProvider]
 
 
 class Context:
