@@ -93,7 +93,7 @@ class STTNAnalyst:
         analysis_code = self._network_builder.get_analysis_code(context=context)
         content = analysis_code
         
-        # add the 'context.network' to user namespace variable to be visible to InteractiveShell's (get_ipython()) scope
+        # add the 'context.network' to variable in user namespace to be available in InteractiveShell's (get_ipython()) scope
         get_ipython().user_ns['_context_network'] = context.network
         # after assigning to 'sttn_network' delete '_context_network' variable
         prefix = "sttn_network = _context_network\ndel _context_network\n"
