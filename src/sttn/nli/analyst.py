@@ -1,5 +1,6 @@
 from typing import Optional
 
+from IPython.core.interactiveshell import ExecutionResult
 from langchain.chains import LLMChain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import (
@@ -16,7 +17,7 @@ from sttn.nli.prompts import Context
 
 
 class STTNAnalyst:
-    def __init__(self, verbose: bool = False, model_name: str = "gpt-4o"):
+    def __init__(self, verbose: bool = False, model_name: str = "gpt-4o", code_retry_limit: int = 1):
         self._verbose = verbose
         self._model = ChatOpenAI(temperature=0, model_name=model_name)
         prompt = ChatPromptTemplate.from_messages(
@@ -43,9 +44,28 @@ class STTNAnalyst:
         self._network_builder = NetworkBuilder(model=self._chain)
         self._context: Optional[Context] = None
         self._model_name: str = model_name
+        self._code_retry_limit: int = code_retry_limit
 
     def clarify(self, human_input: str) -> str:
         return self._chain.predict(human_input=human_input)
+
+    def _execute_code(self, code: str) -> ExecutionResult:
+        self._context.analysis_code = code
+        get_ipython().set_next_input(code)
+        result = get_ipython().run_cell(code)
+        return result
+
+    def _run_code_and_retry(self, code: str) -> ExecutionResult:
+        result = self._execute_code(code)
+
+        retry_counter = 0
+        while result.error_in_exec is not None and retry_counter < self._code_retry_limit:
+            fixed_code = self._network_builder.get_fixed_code(context=self._context, exc=result.error_in_exec)
+            result = self._execute_code(fixed_code)
+            print(f"attempt: {retry_counter}, code: {fixed_code}")
+            retry_counter = retry_counter + 1
+
+        return result
 
     def chat(self, user_query: Optional[str] = None) -> Context:
         if user_query is None:
@@ -94,25 +114,10 @@ class STTNAnalyst:
         content = analysis_code
         
         # add the 'context.network' to variable in user namespace to be available in InteractiveShell's (get_ipython()) scope
-        get_ipython().user_ns['_context_network'] = context.network
-        prefix = "sttn_network = _context_network\n"
-        
-        analysis_code = prefix + content
-        context.analysis_code = content
-        
-        # create next cell with analysis code and run it
-        get_ipython().set_next_input(content)
-        result = get_ipython().run_cell(analysis_code)
-        
-        # after assigning to 'sttn_network' delete '_context_network' variable
-        del get_ipython().user_ns['_context_network']
-        
-        # if the code doesn't work, fix it with LLM
-        if result.error_in_exec is not None:
-            fixed_code = self._network_builder.get_fixed_code(context=context, exc=result.error_in_exec)
-            get_ipython().set_next_input(fixed_code)
-            print(fixed_code)
-        else:
+        get_ipython().user_ns['sttn_network'] = context.network
+        result = self._run_code_and_retry(analysis_code)
+
+        if result.error_in_exec is None:
             context.result = result.result
 
         return context
