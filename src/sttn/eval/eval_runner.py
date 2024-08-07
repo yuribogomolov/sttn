@@ -96,52 +96,55 @@ if __name__ == "__main__":
     while True:
         print('Pick the dataset you want to evaluate your chain on (write only the number):')
         print('1) Taxi provider eval (5 experiments, id-arg-exec check);')
-        print('2) Taxi+LEHD providers eval (25 experiments, id-arg-exec check);')
-        #print('3) All providers eval (100 experiments, id-arg-exec-result check);')
+        print('2) Taxi+LEHD providers eval (27 experiments);')
+        print('3) Taxi + LEHD evaluation - 100 examples (100 experiments, id-arg-exec-result check);')
         print('4) Exit.')
         picked_dataset_num = input("Number of the dataset:")
         if picked_dataset_num.find('1') != -1:
             dataset_name = 'Taxi provider eval small1'
             break
         elif picked_dataset_num.find('2') != -1:
-            dataset_name = 'Taxi + lehd evaluation - 25 examples'
+            dataset_name = 'Taxi + lehd evaluation - 27 examples'
             break
         elif picked_dataset_num.find('3') != -1:
-            #dataset_name = 'All providers eval'
-            #break
-            pass
+            dataset_name = 'Taxi + LEHD evaluation - 100 examples'
+            break
         elif picked_dataset_num.find('4') != -1:
             print("Exiting...")
             exit()
         else:
             print("Invalid dataset number, try again!")
     
-    # Experiment prefix to distinguish between different evaluations
-    exp_prefix = input("Enter an experiment prefix to distinguish between different evaluations:")
-    exp_version = input("Enter an experiment version to distinguish between same evaluation (eg. 1.0.0):")
-
     # Interactive model load menu for chain evaluation
     while True:
         print('Pick the model you want to use for your chain (write only the number):')
-        print('1) GPT-4o (The fastest and most affordable flagship model);')
+        print('1) GPT-4o-mini (the most cost-efficient small model);')
+        print('1) GPT-4o (the most advanced multimodal model);')
         print('2) GPT-4 Turbo (The previous set of high-intelligence models);')
         print('3) GPT-3.5 Turbo (Fast, inexpensive model for simple tasks);')
         print('4) Exit.')
         picked_dataset_num = input("Number of the model:")
         if picked_dataset_num.find('1') != -1:
-            model_name = 'gpt-4o'
+            model_name = 'gpt-4o-mini'
             break
         elif picked_dataset_num.find('2') != -1:
-            model_name = 'gpt-4-turbo'
+            model_name = 'gpt-4o'
             break
         elif picked_dataset_num.find('3') != -1:
-            model_name = 'gpt-3.5-turbo'
+            model_name = 'gpt-4-turbo'
             break
         elif picked_dataset_num.find('4') != -1:
+            model_name = 'gpt-3.5-turbo'
+            break
+        elif picked_dataset_num.find('5') != -1:
             print("Exiting...")
             exit()
         else:
             print("Invalid model number, try again!")
+
+    # Experiment prefix to distinguish between different evaluations
+    exp_prefix = input("Enter an experiment prefix to distinguish between different evaluations:")
+    exp_version = input("Enter an experiment version to distinguish between same evaluation (eg. 1.0.0):")
 
     # Define the variables you want to pass
     parameters = {
@@ -151,9 +154,11 @@ if __name__ == "__main__":
         'model_name': f'{model_name}'
     }
     
-    notebook_path = 'analyst_eval.ipynb'
+    # Run notebook with the defined parameters
+    notebook_path = os.path.join(os.path.dirname(__file__), 'analyst_eval.ipynb')
     result_link = run_notebook(notebook_path, parameters)
+    
+    print(f"\n------------------Link to LangSmith------------------")
     print(result_link)
-    print("------------------You can also view the evaluation results by using the LangSmith link above------------------")
-
+    print("\n------------------You can also view the evaluation results by using the LangSmith link above------------------\n")
 
