@@ -43,14 +43,16 @@ class NycTaxiDataProvider(DataProvider):
                 The earliest dataset is available for 2009.
 
         Returns:
-            SpatioTemporalNetwork: An STTN network where node represent New York City taxi zones
+            SpatioTemporalNetwork: An STTN network where nodes represent New York City taxi zones
                 and edges represent individual trips.
 
-            The nodes dataframe contains the following columns:
-                'id' (int64) - index column, represents taxi zone id
-                'borough' (str) - taxi zone borough
-                'zone' (str) - taxi zone name
-                'geometry' (shape) - shape object for the zone
+            The nodes dataframe contains the following:
+                index:
+                    'id' (int64) - index column, represents taxi zone id
+                columns:
+                    'borough' (str) - taxi zone borough
+                    'zone' (str) - taxi zone name
+                    'geometry' (shape) - shape object for the zone
 
             The edges dataframe contains the following columns:
                 'origin' (int64) - trip origin taxi zone id
