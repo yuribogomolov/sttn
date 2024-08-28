@@ -31,9 +31,10 @@ choropleth(sttn_network: SpatioTemporalNetwork, node_layers: Optional[List[str]]
     Returns a choropleth map plot with one layer for each provided node layer. All node layers should correspond to node columns available in sttn_network.nodes.
 
 sttn.algorithms.community.detection module has community detection methods:
-combo_communities(data: SpatioTemporalNetwork, weight: Optional[str] = None, **combo_kwargs) -> SpatioTemporalNetwork
-    Runs community detection using the combo algorithm and returns a SpatioTemporalNetwork` object, where network nodes
-    have one extra column of integer type: 'cluster', corresponding to the detected community number for a given node.
+combo_communities(data: SpatioTemporalNetwork, weight: Optional[str] = None, **combo_kwargs) -> Tuple[SpatioTemporalNetwork, float]
+    Runs community detection using the combo algorithm and returns tuple with two elements: 
+    1. SpatioTemporalNetwork` object, where network nodes have one extra column of integer type: 'cluster', corresponding to the detected community number for a given node.
+    2. Modularity score achieved as float
     `weight` - name of the edge attribute that should be used as a weight
 
 Analytics that is not available in SpatioTemporalNetwork can be done by working with nodes and edges directly:
