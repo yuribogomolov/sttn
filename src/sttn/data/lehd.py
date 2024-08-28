@@ -58,11 +58,13 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
             SpatioTemporalNetwork: An STTN network where node represent census tracts and edges represent employment
                 statistics for people who live in the origin tract and work in the destination tract area.
 
-            The nodes dataframe contains the following columns:
-                'id' (int64) - index column, represents census tract ids
-                'county' (str) - county of the tract (e.g. "Queens County, NY")
-                'zip' (int) - zip code of the tract
-                'geometry' (shape) - shape object for the tract
+            The nodes dataframe contains the following:
+                index:
+                    'id' (int64) - index column, represents census tract ids
+                columns:
+                    'county' (str) - county of the tract (e.g. "Queens County, NY")
+                    'zip' (int) - zip code of the tract
+                    'geometry' (shape) - shape object for the tract
 
             The edges dataframe contains the following columns:
                 'origin' (int64) - origin Census tract id
