@@ -19,9 +19,11 @@ Dataset schema is described in the Data Provider Documentation section. If analy
 
 SpatioTemporalNetwork methods:
 filter_nodes(self, condition: pd.Series) -> SpatioTemporalNetwork:
+    On input accepts a boolean pd.Series with the same index as the nodes GeoDataFrame. 
     return a new SpatioTemporalNetwork without nodes where the input node condition is False, and adjacent edges.
 
 filter_edges(self, condition: pd.Series) -> SpatioTemporalNetwork:
+    On input accepts a boolean pd.Series with the same index as the nodes DataFrame. 
     return a new SpatioTemporalNetwork without edges where the input edge condition is False.
 
 sttn.plot module supports plotting functions:
