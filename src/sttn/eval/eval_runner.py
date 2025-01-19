@@ -95,10 +95,11 @@ if __name__ == "__main__":
     # Interactive dataset load menu for chain evaluation
     while True:
         print('Pick the dataset you want to evaluate your chain on (write only the number):')
-        print('1) Taxi provider eval (5 experiments, id-arg-exec check);')
-        print('2) Taxi+LEHD providers eval (27 experiments);')
-        print('3) Taxi + LEHD evaluation - 100 examples (100 experiments, id-arg-exec-result check);')
-        print('4) Exit.')
+        print('1) Taxi provider eval (5 experiments, only id-arg-exec check);')
+        print('2) Taxi+LEHD providers eval (27 examples);')
+        print('3) Taxi + LEHD evaluation - 100 examples;')
+        print('4) Taxi + LEHD evaluation - 280 examples;')
+        print('5) Exit.')
         picked_dataset_num = input("Number of the dataset:")
         if picked_dataset_num.find('1') != -1:
             dataset_name = 'Taxi provider eval small1'
@@ -110,6 +111,9 @@ if __name__ == "__main__":
             dataset_name = 'Taxi + LEHD evaluation - 100 examples'
             break
         elif picked_dataset_num.find('4') != -1:
+            dataset_name = 'Taxi + LEHD evaluation - 280 examples'
+            break
+        elif picked_dataset_num.find('5') != -1:
             print("Exiting...")
             exit()
         else:
