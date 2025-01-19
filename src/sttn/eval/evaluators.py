@@ -7,7 +7,7 @@ import backoff
 from typing import List
 
 # Parameters for exponential backoff
-max_tries=6  # max tries before giving up
+max_tries=2  # max tries before giving up
 base=8  # initial backoff time in seconds
 factor=1  # backoff factor
 max_value=60  # max backoff time in seconds
@@ -776,3 +776,113 @@ class SummaryEvaluators:
                     "score": -1.0}
 
 
+#--------------------------------------- OUTDATED ---------------------------------------#
+# Low complexity
+def low_complexity_args_accuracy_summary_eval(runs: List[Run], examples: List[Example]) -> dict:
+    """
+    Data provider and args accuracy evaluator for the low complexity queries.
+    ### Parameters:
+    - runs: List[Run] - list of LangChain Run objects
+    - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
+
+    ### Returns:
+    - dict: {"key": "low_compl_args_accuracy",
+             "score": float} - the accuracy score for the low complexity queries
+    """
+    try:
+        low_comp_correct_id_and_args = 0
+        low_comp_examples = 0
+
+        for run, example in zip(runs, examples):
+            # Check right complexity
+            if example.outputs["complexity"] == "low":
+                id_match = data_provider_id_match(run, example)['score']
+                low_comp_examples += 1
+                
+                # check the args only when id was predicted correctly
+                if id_match:
+                    args_match = data_provider_args_match(run, example)['score']
+                    low_comp_correct_id_and_args += args_match
+        
+        return {"key": "low_compl_args_accuracy",
+                "score": low_comp_correct_id_and_args/low_comp_examples}
+    except KeyError as e:
+        print(f"KeyError: {str(e)} ATTRIBUTE IS MISSING IN THE TEST DATASET")
+        return {"key": "low_compl_args_accuracy",
+                "score": -1.0}
+    except Exception as e:
+        print(f"An error occurred while evaluating low complexity accuracy: {str(e)}")
+        return {"key": "low_compl_args_accuracy",
+                "score": -1.0}
+
+# Medium complexity
+def medium_complexity_args_accuracy_summary_eval(runs: List[Run], examples: List[Example]) -> dict:
+    """
+    Data provider and args accuracy evaluator for the medium complexity queries.
+    ### Parameters:
+    - runs: List[Run] - list of LangChain Run objects
+    - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
+
+    ### Returns:
+    - dict: {"key": "medium_compl_args_accuracy",
+             "score": float} - the accuracy score for the medium complexity queries
+    """
+    try:
+        med_comp_correct_id_and_args = 0
+        med_comp_examples = 0
+
+        for run, example in zip(runs, examples):
+            if example.outputs["complexity"] == "medium":
+                id_match = data_provider_id_match(run, example)['score']
+                med_comp_examples += 1
+                if id_match:
+                    args_match = data_provider_args_match(run, example)['score']
+                    med_comp_correct_id_and_args += args_match
+        
+        return {"key": "medium_compl_args_accuracy",
+                "score": med_comp_correct_id_and_args/med_comp_examples}
+    except KeyError as e:
+        print(f"KeyError: {str(e)} ATTRIBUTE IS MISSING IN THE TEST DATASET")
+        return {"key": "medium_compl_args_accuracy",
+                "score": -1.0}
+    except Exception as e:
+        print(f"An error occurred while evaluating medium complexity accuracy: {str(e)}")
+        return {"key": "medium_compl_args_accuracy",
+                "score": -1.0}
+
+# High complexity
+def high_complexity_args_accuracy_summary_eval(runs: List[Run], examples: List[Example]) -> dict:
+    """
+    Data provider and args accuracy evaluator for the high complexity queries.
+    ### Parameters:
+    - runs: List[Run] - list of LangChain Run objects
+    - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
+
+    ### Returns:
+    - dict: {"key": "high_compl_args_accuracy",
+             "score": float} - the accuracy score for the high complexity queries
+    """
+    try:
+        high_comp_correct_id_and_args = 0
+        high_comp_examples = 0
+
+        for run, example in zip(runs, examples):
+            if example.outputs["complexity"] == "high":
+                id_match = data_provider_id_match(run, example)['score']
+                high_comp_examples += 1
+                if id_match:
+                    args_match = data_provider_args_match(run, example)['score']
+                    high_comp_correct_id_and_args += args_match
+        
+        return {"key": "high_compl_args_accuracy",
+                "score": high_comp_correct_id_and_args/high_comp_examples}
+    
+    except KeyError as e:
+        print(f"KeyError: {str(e)} ATTRIBUTE IS MISSING IN THE TEST DATASET")
+        return {"key": "high_compl_args_accuracy",
+                "score": -1.0}
+    except Exception as e:
+        print(f"An error occurred while evaluating high complexity accuracy: {str(e)}")
+        print("HIGH COMPLEXITY FEATURE MIGHT BE MISSING IN THE TEST DATASET")
+        return {"key": "high_compl_args_accuracy",
+                "score": -1.0}
