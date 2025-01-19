@@ -19,19 +19,24 @@ Dataset schema is described in the Data Provider Documentation section. If analy
 
 SpatioTemporalNetwork methods:
 filter_nodes(self, condition: pd.Series) -> SpatioTemporalNetwork:
-    return a new SpatioTemporalNetwork without nodes where the input node condition is False, and adjacent edges.
+    On input accepts a boolean pd.Series with the same index as the nodes GeoDataFrame. 
+    return a new SpatioTemporalNetwork !ONLY! with nodes where the input node condition is True, and adjacent edges.
+    e.g. running `sttn_network.filter_nodes(sttn_network.nodes['county'] == "Montgomery County, MD")` will ONLY return nodes and edges that are in Montgomery County, MD REMOVING all other nodes and edges.
 
 filter_edges(self, condition: pd.Series) -> SpatioTemporalNetwork:
-    return a new SpatioTemporalNetwork without edges where the input edge condition is False.
+    On input accepts a boolean pd.Series with the same index as the nodes DataFrame. 
+    return a new SpatioTemporalNetwork !ONLY! with edges where the input edge condition is True.
+
 
 sttn.plot module supports plotting functions:
 choropleth(sttn_network: SpatioTemporalNetwork, node_layers: Optional[List[str]] = None)
     Returns a choropleth map plot with one layer for each provided node layer. All node layers should correspond to node columns available in sttn_network.nodes.
 
 sttn.algorithms.community.detection module has community detection methods:
-combo_communities(data: SpatioTemporalNetwork, weight: Optional[str] = None, **combo_kwargs) -> SpatioTemporalNetwork
-    Runs community detection using the combo algorithm and returns a SpatioTemporalNetwork` object, where network nodes
-    have one extra column of integer type: 'cluster', corresponding to the detected community number for a given node.
+combo_communities(data: SpatioTemporalNetwork, weight: Optional[str] = None, **combo_kwargs) -> Tuple[SpatioTemporalNetwork, float]
+    Runs community detection using the combo algorithm and returns tuple with two elements: 
+    1. SpatioTemporalNetwork` object, where network nodes have one extra column of integer type: 'cluster', corresponding to the detected community number for a given node.
+    2. Modularity score achieved as float
     `weight` - name of the edge attribute that should be used as a weight
 
 Analytics that is not available in SpatioTemporalNetwork can be done by working with nodes and edges directly:
