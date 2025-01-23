@@ -7,7 +7,7 @@ import backoff
 from typing import List
 
 # Parameters for exponential backoff
-max_tries=2  # max tries before giving up
+max_tries=3  # max tries before giving up
 base=8  # initial backoff time in seconds
 factor=1  # backoff factor
 max_value=60  # max backoff time in seconds
@@ -15,9 +15,9 @@ max_value=60  # max backoff time in seconds
 
 # reformat the whole file as class
 class Evaluators:
-    def __init__(self):
+    def __init__(self, eval_llm: ChatOpenAI):
         # Evaluating LLM
-        self.eval_llm = ChatOpenAI(temperature=0.0, model="gpt-4o", max_retries=3)
+        self.eval_llm = eval_llm
     ######--------------------------------------- EVALUATORS (evaluate each example) ---------------------------------------######
 
     def data_provider_id_match(self, run: Run, example: Example) -> dict:
@@ -48,17 +48,17 @@ class Evaluators:
                 pred_result = run.outputs["result"] = float(run.outputs["result"])
                 pred_result = round(pred_result, 5)
 
-            pred_result = run.outputs["result"]
             score = pred_result == ref_result
 
             return {"key": "result_match",
                     "score": int(score)}
+        
         except KeyError as e:
-            print(f"KeyError: `{str(e)}` attribute is MISSING in the dataset\n")
+            print(f"KeyERROR for Query_ID {example.inputs['id']}:\n\t`{str(e)}` attribute is MISSING in the dataset\n")
             return {"key": "result_match",
                     "score": -1}
         except Exception as e:
-            print(f"An error happened while using `result_match`: {str(e)}\n")
+            print(f"ERROR in result_match for Query_ID {example.inputs['id']}:\n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "result_match",
                     "score": 0}
 
@@ -147,7 +147,10 @@ class Evaluators:
                 return {"key": "__ignore",
                         "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while evaluating geospatial awareness with LLM: {str(e)}\n")
+            print(f"ERROR in get_geosp_aware_eval_score for Query_ID {example.inputs['id']}: \n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print("\tWe ignore this query")
+            return {"key": "__ignore",
+                    "score": -1.0}
 
     # Create temporal awareness evaluator function with backoff
     @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=max_tries, base=base, factor=factor, max_value=max_value)
@@ -168,15 +171,18 @@ class Evaluators:
                 return {"key": "__ignore",
                         "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while evaluating temporal awareness with LLM: {str(e)}\n")
+            print(f"ERROR in get_temp_aware_eval_score for Query_ID {example.inputs['id']}: \n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print("\tWe ignore this query")
+            return {"key": "__ignore",
+                    "score": -1.0}
     
 
 
 ######---------------------------------- SUMMARY EVALUATORS (evaluate all examples) ----------------------------------######
 
 class SummaryEvaluators:
-    def __init__(self):
-        self.evaluators = Evaluators()
+    def __init__(self, evaluators: Evaluators):
+        self.evaluators = evaluators
     #--------------------------------------- Specific data_provider_`ids` ---------------------------------------#
     # Taxi
     def taxi_dp_id_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
@@ -201,9 +207,16 @@ class SummaryEvaluators:
             
             return {"key": "taxi_dp_id_accuracy",
                     "score": sum_id_match/taxi_examples}
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in taxi_dp_id_accuracy_summary_eval:\n\t`NycTaxiDataProvider` is MISSING in this dataset")
+            return {"key": "taxi_dp_id_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in taxi_dp_id_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "taxi_dp_id_accuracy",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while using NycTaxiDataProvider accuracy summary evaluator: {str(e)}")
-            print("`NycTaxiDataProvider` might be MISSING in the dataset\n")
+            print(f"ERROR in taxi_dp_id_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "taxi_dp_id_accuracy",
                     "score": -1.0}
 
@@ -230,10 +243,16 @@ class SummaryEvaluators:
             
             return {"key": "lehd_dp_id_accuracy",
                     "score": sum_id_match/lehd_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in lehd_dp_accuracy_summary_eval:\n\t`OriginDestinationEmploymentDataProvider` is MISSING in this dataset")
+            return {"key": "lehd_dp_id_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in lehd_dp_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "lehd_dp_id_accuracy",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while using `LEHD data provider` accuracy summary evaluator: {str(e)}")
-            print("`OriginDestinationEmploymentDataProvider` might be MISSING in the dataset\n")
+            print(f"ERROR in lehd_dp_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "lehd_dp_id_accuracy",
                     "score": -1.0}
 
@@ -266,9 +285,16 @@ class SummaryEvaluators:
         
             return {"key": "taxi_dp_args_accuracy",
                     "score": sum_args_match/taxi_examples}
+        except ZeroDivisionError:
+            print(f"ZeroDivisionERROR in taxi_dp_args_accuracy_summary_eval:\n\t`NycTaxiDataProvider` is MISSING in this dataset")
+            return {"key": "taxi_dp_args_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in taxi_dp_args_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "taxi_dp_args_accuracy",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while using `NycTaxiDataProvider` 'args' accuracy summary evaluator: {str(e)}")
-            print("`NycTaxiDataProvider` might be MISSING in the dataset\n")
+            print(f"ERROR in taxi_dp_args_accuracy_summary_eval:\n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "taxi_dp_args_accuracy",
                     "score": -1.0}
 
@@ -300,9 +326,16 @@ class SummaryEvaluators:
             
             return {"key": "lehd_dp_args_accuracy",
                     "score": sum_args_match/lehd_examples}
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in lehd_dp_args_accuracy_summary_eval:\n\t`OriginDestinationEmploymentDataProvider` is MISSING in this dataset")
+            return {"key": "lehd_dp_args_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in lehd_dp_args_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "lehd_dp_args_accuracy",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while using `LEHD data provider` 'args' accuracy summary evaluator: {str(e)}")
-            print("`OriginDestinationEmploymentDataProvider` might be MISSING in the dataset\n")
+            print(f"ERROR in lehd_dp_args_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "lehd_dp_args_accuracy",
                     "score": -1.0}
         
@@ -337,10 +370,16 @@ class SummaryEvaluators:
             
             return {"key": "taxi_dp_result_accuracy",
                     "score": sum_result_match/taxi_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in taxi_dp_result_accuracy_summary_eval:\n\t`NycTaxiDataProvider` or 'result' attribute is MISSING in this dataset")
+            return {"key": "taxi_dp_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in taxi_dp_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "taxi_dp_result_accuracy",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while using `NycTaxiDataProvider` 'result' accuracy summary evaluator: {str(e)}")
-            print("`NycTaxiDataProvider` or 'result' attribute might be MISSING in the dataset\n")
+            print(f"ERROR in taxi_dp_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "taxi_dp_result_accuracy",
                     "score": -1.0}
         
@@ -374,10 +413,16 @@ class SummaryEvaluators:
             
             return {"key": "lehd_dp_result_accuracy",
                     "score": sum_result_match/lehd_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in lehd_dp_result_accuracy_summary_eval:\n\t`OriginDestinationEmploymentDataProvider` or 'result' attribute is MISSING in this dataset")
+            return {"key": "lehd_dp_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in lehd_dp_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "lehd_dp_result_accuracy",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while using `LEHD data provider` 'result' accuracy summary evaluator: {str(e)}")
-            print("`OriginDestinationEmploymentDataProvider` or 'result' attribute might be MISSING in the dataset\n")
+            print(f"ERROR in lehd_dp_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "lehd_dp_result_accuracy",
                     "score": -1.0}
     ###
@@ -411,10 +456,16 @@ class SummaryEvaluators:
             
             return {"key": "geospat_awr_llm_eval",
                     "score": sum_geospatial_awr/geospatial_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in geospatial_awr_llm_accuracy_summary_eval:\n\t`geospatial awareness` category is MISSING in this dataset")
+            return {"key": "geospat_awr_llm_eval",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in geospatial_awr_llm_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "geospat_awr_llm_eval",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while evaluating geospatial awareness with LLM: {str(e)}")
-            print("`geospatial awareness` attribute might be MISSING in the dataset\n")
+            print(f"ERROR in geospatial_awr_llm_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "geospat_awr_llm_eval",
                     "score": -1.0}
 
@@ -447,10 +498,16 @@ class SummaryEvaluators:
             
             return {"key": "geospat_awr_result_accuracy",
                     "score": sum_result_match/geospatial_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in geospatial_awr_result_accuracy_summary_eval:\n\t`geospatial awareness` or 'result' attributes are MISSING in this dataset")
+            return {"key": "geospat_awr_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in geospatial_awr_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "geospat_awr_result_accuracy",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while evaluating `results` accuracy of examples that require `geospatial awareness`: {str(e)}")
-            print("`geospatial awareness` or 'result' attributes might be MISSING in the dataset\n")
+            print(f"ERROR in geospatial_awr_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "geospat_awr_result_accuracy",
                     "score": -1.0}
 
@@ -478,10 +535,16 @@ class SummaryEvaluators:
 
             return {"key": "temp_awr_llm_eval",
                     "score": sum_temporal_awr/temporal_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in temporal_awr_llm_accuracy_summary_eval:\n\t`temporal awareness` category is MISSING in this dataset")
+            return {"key": "temp_awr_llm_eval",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in temporal_awr_llm_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "temp_awr_llm_eval",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while evaluating temporal awareness with LLM: {str(e)}")
-            print("`temporal awareness` attribute might be MISSING in the dataset\n")
+            print(f"ERROR in temporal_awr_llm_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "temp_awr_llm_eval",
                     "score": -1.0}
 
@@ -514,10 +577,16 @@ class SummaryEvaluators:
             
             return {"key": "temp_awr_result_accuracy",
                     "score": sum_result_match/temporal_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in temporal_awr_result_accuracy_summary_eval:\n\t`temporal awareness` category is MISSING in this dataset")
+            return {"key": "temp_awr_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in temporal_awr_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "temp_awr_result_accuracy",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while evaluating results accuracy of examples that require `temporal awareness`: {str(e)}")
-            print("`temporal awareness` or `result` attributes might be MISSING in the dataset\n")
+            print(f"ERROR in temporal_awr_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "temp_awr_result_accuracy",
                     "score": -1.0}
 
@@ -551,12 +620,19 @@ class SummaryEvaluators:
             
             return {"key": "comm_det_result_accuracy",
                     "score": sum_result_match/comm_det_examples}
-        
-        except Exception as e:
-            print(f"An error occurred while evaluating results accuracy of examples that use `community detection`: {str(e)}")
-            print("`community detection` or `result` attributes might be MISSING in the dataset\n")
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in comm_det_result_accuracy_summary_eval:\n\t`community detection` category is MISSING in this dataset")
             return {"key": "comm_det_result_accuracy",
                     "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in comm_det_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "comm_det_result_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in comm_det_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "comm_det_result_accuracy",
+                    "score": -1.0}
+
     # --------------------------------------- PageRank ---------------------------------------#
     def pagerank_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
         """
@@ -587,12 +663,19 @@ class SummaryEvaluators:
             
             return {"key": "pagerank_result_accuracy",
                     "score": sum_result_match/pagerank_examples}
-        
-        except Exception as e:
-            print(f"An error occurred while evaluating results accuracy of examples that use `PageRank`: {str(e)}")
-            print("`PageRank` or `result` attributes might be MISSING in the dataset\n")
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in pagerank_result_accuracy_summary_eval:\n\t`PageRank` category is MISSING in this dataset")
             return {"key": "pagerank_result_accuracy",
                     "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in pagerank_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "pagerank_result_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in pagerank_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "pagerank_result_accuracy",
+                    "score": -1.0}
+
     # --------------------------------------- Network Density ---------------------------------------#
     def net_dens_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
         """
@@ -623,12 +706,19 @@ class SummaryEvaluators:
             
             return {"key": "net_dens_result_accuracy",
                     "score": sum_result_match/net_dens_examples}
-        
-        except Exception as e:
-            print(f"An error occurred while evaluating results accuracy of examples that use `network density`: {str(e)}")
-            print("`network density` or `result` attributes might be MISSING in the dataset\n")
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in net_dens_result_accuracy_summary_eval:\n\t`network density` category is MISSING in this dataset")
             return {"key": "net_dens_result_accuracy",
                     "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in net_dens_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "net_dens_result_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in net_dens_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "net_dens_result_accuracy",
+                    "score": -1.0}
+
     # --------------------------------------- Degree Centrality ---------------------------------------#
     def cen_deg_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
         """
@@ -659,12 +749,19 @@ class SummaryEvaluators:
             
             return {"key": "cen_deg_result_accuracy",
                     "score": sum_result_match/cen_deg_examples}
-        
-        except Exception as e:
-            print(f"An error occurred while evaluating results accuracy of examples that use `centrality degree`: {str(e)}")
-            print("`centrality degree` or `result` attributes might be MISSING in the dataset\n")
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in cen_deg_result_accuracy_summary_eval:\n\t`centrality degree` category is MISSING in this dataset")
             return {"key": "cen_deg_result_accuracy",
                     "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in cen_deg_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "cen_deg_result_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in cen_deg_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "cen_deg_result_accuracy",
+                    "score": -1.0}
+
     # --------------------------------------- Clustering Coefficient ---------------------------------------#
     def clust_coef_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
         """
@@ -695,10 +792,16 @@ class SummaryEvaluators:
             
             return {"key": "clust_coef_result_accuracy",
                     "score": sum_result_match/clust_coef_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in clust_coef_result_accuracy_summary_eval:\n\t`clustering coefficient` category is MISSING in this dataset")
+            return {"key": "clust_coef_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in clust_coef_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "clust_coef_result_accuracy",
+                    "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while evaluating results accuracy of examples that use `clustering coefficient`: {str(e)}")
-            print("`clustering coefficient` or `result` attributes might be MISSING IN the dataset\n")
+            print(f"ERROR in clust_coef_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "clust_coef_result_accuracy",
                     "score": -1.0}
 
@@ -728,13 +831,16 @@ class SummaryEvaluators:
             
             return {"key": "poorly_written_args_accuracy",
                     "score": poorly_written_correct_id_and_args/poorly_written_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in poorly_written_args_accuracy_summary_eval:\n\t`poorly_written` feature is MISSING in this dataset")
+            return {"key": "poorly_written_args_accuracy",
+                    "score": -1.0}
         except KeyError as e:
-            print(f"KeyError: {str(e)} attribute is missing in the dataset")
+            print(f"KeyError in poorly_written_args_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "poorly_written_args_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while using `poorly-written args` accuracy summary evaluator: {str(e)}\n")
+            print(f"ERROR in poorly_written_args_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "poorly_written_args_accuracy",
                     "score": -1.0}
 
@@ -764,14 +870,16 @@ class SummaryEvaluators:
             
             return {"key": "poorly_written_result_accuracy",
                     "score": poorly_written_correct_id_and_args/poorly_written_examples}
-        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in poorly_written_result_accuracy_summary_eval:\n\t`poorly_written` feature is MISSING in this dataset")
+            return {"key": "poorly_written_result_accuracy",
+                    "score": -1.0}
         except KeyError as e:
-            print(f"KeyError: {str(e)} attribute is MISSING in the dataset")
+            print(f"KeyError in poorly_written_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "poorly_written_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(f"An error occurred while using `poorly-written results` accuracy summary evaluator: {str(e)}")
-            print("`poorly_written` feature might be MISSING in the dataset")
+            print(f"ERROR in poorly_written_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "poorly_written_result_accuracy",
                     "score": -1.0}
 
