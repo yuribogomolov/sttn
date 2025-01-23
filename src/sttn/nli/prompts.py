@@ -22,6 +22,8 @@ class Context:
 
         self._data_provider_args: Optional[Dict[str, str]] = None
 
+        self._feasible: Optional[bool] = None
+
         self._analysis_code: Optional[str] = None
 
         self._network: Optional[SpatioTemporalNetwork] = None
@@ -76,6 +78,14 @@ class Context:
     @data_provider_args.setter
     def data_provider_args(self, _data_provider_args: Dict[str, str]):
         self._data_provider_args = _data_provider_args
+
+    @property
+    def feasible(self):
+        return self._feasible
+    
+    @feasible.setter
+    def feasible(self, feasible: bool):
+        self._feasible = feasible
 
     @property
     def analysis_code(self):
