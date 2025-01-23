@@ -2,16 +2,16 @@ import os
 from datetime import datetime
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet
-import numpy as np
 from dateutil.relativedelta import relativedelta
 
 from sttn import network
 from .data_provider import DataProvider
 
-TAXI_ZONE_SHAPE_URL = 'https://data.cityofnewyork.us/api/geospatial/d3c5-ddgc?method=export&format=Shapefile'
+TAXI_ZONE_SHAPE_URL = 'https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip'
 
 
 class NycTaxiDataProvider(DataProvider):
@@ -25,7 +25,7 @@ class NycTaxiDataProvider(DataProvider):
         edges = taxi_trips.rename(
             columns={'PULocationID': 'origin', 'DOLocationID': 'destination', 'tpep_pickup_datetime': 'time'})
         edges_casted = edges.astype({'origin': 'int64', 'destination': 'int64'})
-        taxi_zones = taxi_zones.rename(columns={'objectid': 'id'}).astype({'id': 'int32'})
+        taxi_zones = taxi_zones.rename(columns={'OBJECTID': 'id'}).astype({'id': 'int32'})
         taxi_zones = taxi_zones.set_index('id')
         return network.SpatioTemporalNetwork(nodes=taxi_zones, edges=edges_casted)
 
@@ -137,7 +137,7 @@ class Service311RequestsDataProvider(DataProvider):
             if pqwriter:
                 pqwriter.close()
             os.rename(tmp_file_path, file_path)
-            
+
         return file_path
 
 
@@ -146,7 +146,7 @@ class RestaurantInspectionDataProvider(DataProvider):
      first type of nodes represents restaurants (establishments), the second type of nodes 
      represents types of inspection, and every edge represents an inspection details where the
      origin is the inspection type, and destination is the restaurant where the inspection happened."""
-  
+
     @staticmethod
     def get_data(self, from_date: str, to_date: str) -> network.SpatioTemporalNetwork:
         """
@@ -203,65 +203,64 @@ class RestaurantInspectionDataProvider(DataProvider):
         url = 'https://data.cityofnewyork.us/api/views/43nn-pn8j/rows.csv?accessType=DOWNLOAD'
         rest_ins_data = self.cache_file(url)
         df = pd.read_csv(rest_ins_data,
-                        parse_dates=['INSPECTION DATE', 'RECORD DATE', 'GRADE DATE'],
-                        infer_datetime_format=True)
+                         parse_dates=['INSPECTION DATE', 'RECORD DATE', 'GRADE DATE'],
+                         infer_datetime_format=True)
 
         df = format_data(df, from_date, to_date)
 
         return build_network(df)
-
 
     def format_data(self, df: pd.DataFrame, from_date: str, to_date: str):
         """Format and clean the data."""
 
         # Drop values with unknown latitude and longitude
         df = df.loc[~((df['Latitude'].isna()) | (df['Longitude'].isna())
-                |(df['Latitude'].round() == 0) | (df['Longitude'].round() == 0))]
+                      | (df['Latitude'].round() == 0) | (df['Longitude'].round() == 0))]
         df = df.drop(columns=['Location Point1'])
 
         # Drop values where INSPECTION DATE == 01.01.1900 (which means they didn't have an inspection yet)
         df = df.loc[df['INSPECTION DATE'] != '01.01.1900']
-        
+
         # Filter by INSPECTION DATE
         df = df.loc[(df['INSPECTION DATE'] >= from_date) & (df['INSPECTION DATE'] <= to_date)]
-        
+
         # Change 0's and empty phone numbers to NaNs in BORO and PHONE
-        df.loc[:, 'BORO'] = df['BORO'].map({0:np.nan})
+        df.loc[:, 'BORO'] = df['BORO'].map({0: np.nan})
         df.loc[:, 'PHONE'] = df['PHONE'].map({'__________': np.nan}).astype(np.float32)
-        
+
         # Uppercase column names and replace spaces with underscore
         df.columns = df.columns.str.upper().str.strip().str.replace(' ', '_')
-        
+
         # Change the names of some columns to more straightforward ones
-        df = df.rename(columns={'CAMIS': 'ID',#'id',
+        df = df.rename(columns={'CAMIS': 'ID',  # 'id',
                                 'DBA': 'NAME'})
         return df
-
 
     def build_network(self, df: pd.DataFrame) -> network.SpatioTemporalNetwork:
         """Build an STTN network from filtered data."""
 
         # Separate features for edges and two types of nodes
         rest_node_features = ['ID', 'NAME', 'BORO', 'BUILDING', 'STREET', 'ZIPCODE', 'PHONE',
-            'CUISINE_DESCRIPTION', 'LATITUDE', 'LONGITUDE', 'COMMUNITY_BOARD',
-            'COUNCIL_DISTRICT', 'CENSUS_TRACT', 'BIN', 'BBL', 'NTA']
+                              'CUISINE_DESCRIPTION', 'LATITUDE', 'LONGITUDE', 'COMMUNITY_BOARD',
+                              'COUNCIL_DISTRICT', 'CENSUS_TRACT', 'BIN', 'BBL', 'NTA']
         insp_node_features = ['INSPECTION_TYPE']
-        edge_features = ['ID', 'INSPECTION_TYPE','INSPECTION_DATE', 'ACTION', 'VIOLATION_CODE', 'VIOLATION_DESCRIPTION',
-            'CRITICAL_FLAG', 'SCORE', 'GRADE', 'GRADE_DATE', 'RECORD_DATE',
-            ]
+        edge_features = ['ID', 'INSPECTION_TYPE', 'INSPECTION_DATE', 'ACTION', 'VIOLATION_CODE',
+                         'VIOLATION_DESCRIPTION',
+                         'CRITICAL_FLAG', 'SCORE', 'GRADE', 'GRADE_DATE', 'RECORD_DATE',
+                         ]
 
         # Geodf with restaurants
         gdf_rest_nodes = df.loc[:, rest_node_features]
         gdf_rest_nodes.loc[:, 'IS_REST'] = True
         gdf_rest_nodes = gpd.GeoDataFrame(
-          gdf_rest_nodes.drop(columns=['LATITUDE','LONGITUDE']),
-          geometry=gpd.points_from_xy(x=gdf_rest_nodes['LATITUDE'], y=gdf_rest_nodes['LONGITUDE'])
-          )
+            gdf_rest_nodes.drop(columns=['LATITUDE', 'LONGITUDE']),
+            geometry=gpd.points_from_xy(x=gdf_rest_nodes['LATITUDE'], y=gdf_rest_nodes['LONGITUDE'])
+        )
         gdf_rest_nodes.loc[:, 'ID'] = gdf_rest_nodes['ID'].astype(str)
-        
+
         # df with inspection types
         df_insp_nodes = df.loc[:, insp_node_features]
-        df_insp_nodes = df_insp_nodes.rename(columns={'INSPECTION_TYPE':'ID'})
+        df_insp_nodes = df_insp_nodes.rename(columns={'INSPECTION_TYPE': 'ID'})
 
         # Geodf with all nodes
         gdf_nodes = pd.concat([gdf_rest_nodes, df_insp_nodes], join='outer', ignore_index=True)
@@ -280,12 +279,12 @@ class RestaurantInspectionDataProvider(DataProvider):
 
         # Downcast float64 to float32 to reduce memory footprint
         for col in gdf_nodes.select_dtypes(include=['float64']).columns:
-              gdf_nodes[col] = gdf_nodes[col].astype('float32')
+            gdf_nodes[col] = gdf_nodes[col].astype('float32')
         for col in df_edges.select_dtypes(include=['float64']).columns:
-              df_edges[col] = df_edges[col].astype('float32')
+            df_edges[col] = df_edges[col].astype('float32')
 
         return network.SpatioTemporalNetwork(nodes=gdf_nodes,
-                                            edges=df_edges,
-                                            origin='ORIGIN',
-                                            destination='DESTINATION',
-                                            node_id='ID')
+                                             edges=df_edges,
+                                             origin='ORIGIN',
+                                             destination='DESTINATION',
+                                             node_id='ID')
