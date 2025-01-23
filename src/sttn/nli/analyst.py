@@ -60,11 +60,12 @@ class STTNAnalyst:
 
         retry_counter = 0
         while result.error_in_exec is not None and retry_counter < self._code_retry_limit:
+            print(f"\nERROR in analysis code execution:\n\t{result.error_in_exec}\n||END OF ERROR||\n")
             fixed_code = self._network_builder.get_fixed_code(context=self._context, exc=result.error_in_exec)
-            result = self._execute_code(fixed_code)
-            print(f"attempt: {retry_counter}, code: {fixed_code}")
             retry_counter = retry_counter + 1
-
+            print(f"\nFix attempt: {retry_counter}, Code:\n================================\n{fixed_code}\n================================\n")
+            result = self._execute_code(fixed_code)
+                        
         return result
 
     def chat(self, user_query: Optional[str] = None) -> Context:
@@ -79,25 +80,26 @@ class STTNAnalyst:
         provider_descr = data_provider.justification
 
         if len(provider_id) == 0:
-            print(f"Don't have the data to answer the query, {provider_descr}.")
+            print(f"\nERROR: Don't have the data to answer the query, {provider_descr}.\n")
             return context
 
         if self._verbose:
-            print(f"Picked data provider {provider_id}")
+            print(f"Picked data provider {provider_id}\n")
             print(provider_descr)
 
         context.data_provider = provider_id
         data_provider_args = self._network_builder.pick_provider_arguments(context)
         args_descr = data_provider_args.justification
         context.data_provider_args = data_provider_args.arguments
+        context.feasible = data_provider_args.feasible
 
         if not data_provider_args.feasible:
-            print(f"Can not retrieve the data {args_descr}.")
+            print(f"\nERROR: Can not retrieve the data {args_descr}.")
             return context
 
         if self._verbose:
-            print(args_descr)
             print(f"Data provider arguments: {data_provider_args.arguments}")
+            print(f"Args justification:\n{args_descr}\n")
 
         data_provider = context.data_provider
 
@@ -108,12 +110,12 @@ class STTNAnalyst:
 
         filtering_code = self._network_builder.get_filtering_code(context=context)
         # generated filtering predicates are used only as a chain-of-thought at this moment
-        print(filtering_code)
+        print(f'Generated filtering code:\n{filtering_code}\n')
 
         analysis_code = self._network_builder.get_analysis_code(context=context)
         content = analysis_code
         
-        # add the 'context.network' to variable in user namespace to be available in InteractiveShell's (get_ipython()) scope
+        # add the 'context.network' to 'sttn_network' variable in user namespace to be available in InteractiveShell's (get_ipython()) scope
         get_ipython().user_ns['sttn_network'] = context.network
         result = self._run_code_and_retry(analysis_code)
 
