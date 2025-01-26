@@ -1,15 +1,16 @@
 from typing import Any, Optional, Dict
-from sttn.network import SpatioTemporalNetwork
+
+import pandas as pd
 from jinja2 import Environment, PackageLoader, Template
 
-from sttn.nli import Query
 from sttn.data.brno import HealthcareDataProvider
 from sttn.data.lehd import OriginDestinationEmploymentDataProvider
 from sttn.data.nyc import NycTaxiDataProvider, Service311RequestsDataProvider
+from sttn.network import SpatioTemporalNetwork
+from sttn.nli import Query
 
-import pandas as pd
-
-DATA_PROVIDERS = [NycTaxiDataProvider, Service311RequestsDataProvider, OriginDestinationEmploymentDataProvider, HealthcareDataProvider]
+DATA_PROVIDERS = [NycTaxiDataProvider, Service311RequestsDataProvider, OriginDestinationEmploymentDataProvider,
+                  HealthcareDataProvider]
 
 
 class Context:
@@ -22,14 +23,13 @@ class Context:
 
         self._data_provider_args: Optional[Dict[str, str]] = None
 
+        self._feasible: Optional[bool] = None
+
         self._analysis_code: Optional[str] = None
 
         self._network: Optional[SpatioTemporalNetwork] = None
 
         self._result: Optional[Any] = None
-
-        import sttn.algorithms.community.detection
-        import sttn.plot
 
     @property
     def query(self):
@@ -64,11 +64,11 @@ class Context:
     @property
     def data_provider_id(self):
         return self._data_provider_id
-    
+
     @data_provider_id.setter
     def data_provider_id(self, data_provider_id: str):
         self._data_provider_id = data_provider_id
-        
+
     @property
     def data_provider_args(self):
         return self._data_provider_args
@@ -76,6 +76,14 @@ class Context:
     @data_provider_args.setter
     def data_provider_args(self, _data_provider_args: Dict[str, str]):
         self._data_provider_args = _data_provider_args
+
+    @property
+    def feasible(self):
+        return self._feasible
+
+    @feasible.setter
+    def feasible(self, feasible: bool):
+        self._feasible = feasible
 
     @property
     def analysis_code(self):
