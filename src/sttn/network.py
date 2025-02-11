@@ -113,9 +113,9 @@ class SpatioTemporalNetwork:
                                      destination=self._destination, node_id=self._node_id)
 
     def filter_nodes(self, condition: pd.Series):
-        if self._nodes.shape[0] != condition.count():
+        if self._nodes.shape[0] != condition.shape[0]:
             msg = 'Number of nodes {nodes} is different from the length of the condition array {condition}'.format(
-                nodes=self._nodes.shape[0], condition=condition.count())
+                nodes=self._nodes.shape[0], condition=condition.shape[0])
             raise ValueError(msg)
 
         ids_to_keep = self._nodes[condition].index
@@ -125,9 +125,9 @@ class SpatioTemporalNetwork:
                                      destination=self._destination, node_id=self._node_id)
 
     def filter_edges(self, condition: pd.Series):
-        if self._edges.shape[0] != condition.count():
+        if self._edges.shape[0] != condition.shape[0]:
             msg = 'Number of edges {edges} is different from the length of the condition array {condition}'.format(
-                edges=self._edges.shape[0], condition=condition.count())
+                edges=self._edges.shape[0], condition=condition.shape[0])
             raise ValueError(msg)
 
         filtered_edges = self._edges[condition]
