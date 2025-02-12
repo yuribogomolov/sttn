@@ -15,10 +15,9 @@ TAXI_ZONE_SHAPE_URL = 'https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip
 
 
 class NycTaxiDataProvider(DataProvider):
-    """New York Taxi data provider, builds a network where nodes represent taxi zones and edges
+    """New York Taxi data provider, builds a directed graph (network) where nodes represent taxi zones and edges
     represent taxi trips for a given month. Yellow and green taxi trip records include fields capturing
-    pick-up and drop-off dates/times, pick-up and drop-off locations, trip distances, itemized fares,
-    rate types, payment types, and driver-reported passenger counts."""
+    pick-up dates/times, pick-up and drop-off locations, itemized fares, and driver-reported passenger counts."""
 
     @staticmethod
     def build_network(taxi_trips, taxi_zones) -> network.SpatioTemporalNetwork:
@@ -40,7 +39,7 @@ class NycTaxiDataProvider(DataProvider):
                 'fhv' - For-Hire vehicles
                 'fhvhv' - High-volume for-hire vehicles
             month (str): A string with year and month in the "YYYY-MM" format.
-                The earliest dataset is available for 2009.
+                The dataset is available from 2011 to 2023.
 
         Returns:
             SpatioTemporalNetwork: An STTN network where nodes represent New York City taxi zones
@@ -59,7 +58,7 @@ class NycTaxiDataProvider(DataProvider):
                 'destination' (int64) - trip destination taxi zone id
                 'time' (datetime64[ns]) - trip start time
                 'passenger_count' (int64) - number of passengers
-                'fare_amount' (float64) - trip fare in USD
+                'fare_amount' (float64) - trip fare in USD (can be negative, filter out if not stated otherwise)
         """
         url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/{taxi_type}_tripdata_{month}.parquet'
         taxi_data = self.cache_file(url)
