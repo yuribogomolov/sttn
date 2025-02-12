@@ -48,7 +48,7 @@ class Evaluators:
                 pred_result = None
             else:
                 pred_result = run.outputs["result"] = float(run.outputs["result"])
-                pred_result = round(pred_result, 5)
+                pred_result = round(pred_result, 2)
 
             score = pred_result == ref_result
 
