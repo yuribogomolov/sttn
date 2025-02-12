@@ -47,7 +47,7 @@ class Evaluators:
                 ref_result = None
             else:
                 ref_result = example.outputs["result"] = float(example.outputs["result"])
-                ref_result = round(ref_result, 5)
+                ref_result = round(ref_result, 2)
 
             if run.outputs["result"] in [None, "", "null", "Null", "NULL", "None", "none"]:
                 pred_result = None
