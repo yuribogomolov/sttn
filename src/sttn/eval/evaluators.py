@@ -1,11 +1,16 @@
+import re
+import traceback
 from typing import List
 
 import backoff
+import numpy as np
 import openai
 from langchain_openai import ChatOpenAI
 from langsmith import traceable
 from langsmith.evaluation import LangChainStringEvaluator
 from langsmith.schemas import Example, Run
+
+from sttn.nli.analyst import STTNAnalyst
 
 # Parameters for exponential backoff
 max_tries = 3  # max tries before giving up
@@ -1056,3 +1061,116 @@ def high_complexity_args_accuracy_summary_eval(runs: List[Run], examples: List[E
         print("HIGH COMPLEXITY FEATURE MIGHT BE MISSING IN THE TEST DATASET")
         return {"key": "high_compl_args_accuracy",
                 "score": -1.0}
+
+
+@backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=max_tries, base=base, factor=factor,
+                      max_value=max_value)
+def get_context_with_backoff(inputs: dict, model_name: str, code_retry_limit: int):
+    analyst = STTNAnalyst(model_name=model_name, code_retry_limit=code_retry_limit)
+    # print(f"\nQuery_ID: {inputs['id']}, DEBUG:\n\tLaunched analyst...")
+    context = analyst.chat(user_query=inputs["question"])
+    context.analysis_code = str(context.analysis_code) if context.analysis_code else ''
+    # print(f"Query_ID: {inputs['id']}, DEBUG:\n\tContext returned!")
+    return context
+
+
+def delete_generated_temp_vars(analysis_code: str, id: int):
+    temp_vars = set(re.findall(r'\b([a-zA-Z_]\w*)\b\s?=(?!=)', analysis_code))
+    for var in temp_vars:
+        try:
+            # Dereference objects
+            globals()[var] = None
+            del globals()[var]
+            # print(f"\nQuery_ID: {id}, DEBUG:\n\tDeleted variable `{var}`")
+        except Exception as e:
+            pass
+
+
+@traceable
+def analyst_results(model_name: str, code_retry_limit: int):
+    """
+    Wrapper function to get the results from the Analyst and return them in a dictionary
+    Args:
+        inputs: dict, the inputs to the Analyst
+        model_name: str, the name of the model to use
+        code_retry_limit: int, the number of times to retry the code
+    Returns:
+        dict, the results from the Analyst
+    """
+
+    def analyst_results_with_args(inputs: dict) -> dict:
+        # Initialize an empty result dictionary
+        empty_result_dict = {"data_provider_id": "",
+                             "data_provider_args": {},
+                             "result": None,
+                             "executable": False,
+                             "analysis_code": "NO CODE FROM ANALYST, RETURN 0"}
+
+        print(f"\nQuery_ID: {inputs['id']}, INFO:\n\tQuery:', {inputs['question']}\n")
+        # Get the context from the Analyst
+        try:
+            context = get_context_with_backoff(inputs=inputs, model_name=model_name, code_retry_limit=code_retry_limit)
+        except Exception as e:
+            print(
+                f"\n\nQuery_ID: {inputs['id']}, ERROR:\n\tAn error happened while launching Analyst (return empty dict instead)\n\tError message:")
+            traceback.print_exc()
+            print("\n\t|| END OF ERROR ||\n\n")
+            return empty_result_dict
+
+        try:
+            # print(f"\nQuery_ID: {inputs['id']}, DEBUG:\n\tChecking context for query ID {inputs['id']}:")
+            # Get the data provider from the context if it exists
+            if not context.data_provider or not context.feasible:
+                return empty_result_dict
+            else:
+                # print(f'\tData provider: {context.data_provider}')
+                data_provider = context.data_provider
+
+            # Get the data provider id and args from the context if they both exist
+            if context.data_provider_id and context.data_provider_args:
+                data_provider_id = context.data_provider_id
+                # lowercase the values of context.data_provider_args dictionary
+                data_provider_args = context.data_provider_args
+                data_provider_args = {k: v.lower().strip() if isinstance(v, str) else v for k, v in
+                                      data_provider_args.items()}
+            else:
+                return empty_result_dict
+
+            # Turn the result into a float if possible else None
+            try:
+                context.result = float(context.result)
+                result = round(context.result, 5)
+                if np.isnan(result):
+                    result = None
+            except Exception as e:
+                print(
+                    f"\nQuery_ID: {inputs['id']}, WARNING:\n\tError while converting result to float (return None instead)\n\tError message:{e}\n\t|| END OF ERROR ||\n")
+                result = None
+
+            # Add an evaluation query to the analysis code for the geospatial/temporal awareness
+            if context.analysis_code:
+                analysis_code = f"We have the following data structure: {data_provider.__doc__} \
+                                \n{data_provider.get_data.__doc__}\
+                                \nWe retrieved the SpatioTemporalNetwork with the following arguments {context.data_provider_args}\
+                                \nThe code looks like this:\n" + str(context.analysis_code)
+            else:
+                analysis_code = "NO CODE FROM ANALYST, RETURN 0"
+
+            # extract temporary names from the analysis code and delete them
+            delete_generated_temp_vars(context.analysis_code, inputs['id'])
+
+            output = {"data_provider_id": data_provider_id,
+                      "data_provider_args": data_provider_args,
+                      "result": result,
+                      "executable": True,
+                      "analysis_code": analysis_code,
+                      }
+
+            return output
+
+        except Exception as e:
+            print(
+                f"\nQuery_ID: {inputs['id']}, ERROR:\n\tUnexpected error appeared while transforming Analyst's output\n\tError message:{e}\n\t|| END OF ERROR ||\n")
+            return empty_result_dict
+
+    return analyst_results_with_args
