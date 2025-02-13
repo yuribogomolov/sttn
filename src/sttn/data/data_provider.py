@@ -1,12 +1,13 @@
+import hashlib
 import json
-import requests
 import os
 import pathlib
-import hashlib
+
+import requests
 
 
 class DataProvider:
-    CHUNK_SIZE = 1 << 20
+    CHUNK_SIZE = 1 << 25
 
     def cache_file(self, url, local_filename=None):
         if not local_filename:
