@@ -49,7 +49,7 @@ class Evaluators:
                 ref_result = example.outputs["result"] = float(example.outputs["result"])
                 ref_result = round(ref_result, 2)
 
-            if run.outputs["result"] in [None, "", "null", "Null", "NULL", "None", "none"]:
+            if run.outputs["output"] in [None, "", "null", "Null", "NULL", "None", "none"]:
                 pred_result = None
             else:
                 pred_result = run.outputs["result"] = float(run.outputs["result"])
@@ -1161,7 +1161,7 @@ def analyst_results(model_name: str, code_retry_limit: int):
 
             output = {"data_provider_id": data_provider_id,
                       "data_provider_args": data_provider_args,
-                      "result": result,
+                      "output": result,
                       "executable": True,
                       "analysis_code": analysis_code,
                       }
