@@ -17,7 +17,7 @@ from sttn.nli.prompts import Context
 
 
 class STTNAnalyst:
-    def __init__(self, verbose: bool = False, model_name: str = "gpt-4o", code_retry_limit: int = 1):
+    def __init__(self, verbose: bool = False, model_name: str = "gpt-4o-mini", code_retry_limit: int = 1):
         self._verbose = verbose
         self._model = ChatOpenAI(temperature=0, model_name=model_name)
         prompt = ChatPromptTemplate.from_messages(
