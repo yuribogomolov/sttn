@@ -59,9 +59,10 @@ class STTNAnalyst:
         result = self._execute_code(code)
 
         retry_counter = 0
-        while result.error_in_exec is not None and retry_counter < self._code_retry_limit:
-            print(f"\nERROR in analysis code execution:\n\t{result.error_in_exec}\n||END OF ERROR||\n")
-            fixed_code = self._network_builder.get_fixed_code(context=self._context, exc=result.error_in_exec)
+        while not result.success and retry_counter < self._code_retry_limit:
+            exc = result.error_in_exec if result.error_before_exec is None else result.error_before_exec
+            print(f"\nERROR in analysis code execution:\n\t{exc}\n||END OF ERROR||\n")
+            fixed_code = self._network_builder.get_fixed_code(context=self._context, exc=exc)
             retry_counter = retry_counter + 1
             print(
                 f"\nFix attempt: {retry_counter}, Code:\n================================\n{fixed_code}\n================================\n")
