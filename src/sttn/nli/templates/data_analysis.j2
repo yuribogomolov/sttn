@@ -1,4 +1,4 @@
-Generate valid Python code based on the input dateset to answer the following user query and data provider.
+Generate valid Python code based on the input dataset to answer the following user query and data provider.
 
 === Query ===
 {{ user_query }}
@@ -19,14 +19,13 @@ Dataset schema is described in the Data Provider Documentation section. If analy
 
 SpatioTemporalNetwork methods:
 filter_nodes(self, condition: pd.Series) -> SpatioTemporalNetwork:
-    On input accepts a boolean pd.Series with the same index as the nodes GeoDataFrame. 
+    On input accepts a boolean pd.Series with the same index as the nodes GeoDataFrame.
     return a new SpatioTemporalNetwork !ONLY! with nodes where the input node condition is True, and adjacent edges.
     e.g. running `sttn_network.filter_nodes(sttn_network.nodes['county'] == "Montgomery County, MD")` will ONLY return nodes and edges that are in Montgomery County, MD REMOVING all other nodes and edges.
 
 filter_edges(self, condition: pd.Series) -> SpatioTemporalNetwork:
-    On input accepts a boolean pd.Series with the same index as the nodes DataFrame. 
+    On input accepts a boolean pd.Series with the same index as the edges DataFrame.
     return a new SpatioTemporalNetwork !ONLY! with edges where the input edge condition is True.
-
 
 sttn.plot module supports plotting functions:
 choropleth(sttn_network: SpatioTemporalNetwork, node_layers: Optional[List[str]] = None)
@@ -34,7 +33,7 @@ choropleth(sttn_network: SpatioTemporalNetwork, node_layers: Optional[List[str]]
 
 sttn.algorithms.community.detection module has community detection methods:
 combo_communities(data: SpatioTemporalNetwork, weight: Optional[str] = None, **combo_kwargs) -> Tuple[SpatioTemporalNetwork, float]
-    Runs community detection using the combo algorithm and returns tuple with two elements: 
+    Runs community detection using the combo algorithm and returns tuple with two elements:
     1. SpatioTemporalNetwork` object, where network nodes have one extra column of integer type: 'cluster', corresponding to the detected community number for a given node.
     2. Modularity score achieved as float
     `weight` - name of the edge attribute that should be used as a weight
@@ -47,7 +46,8 @@ Analytics that is not available in SpatioTemporalNetwork can be done by working 
 Pay attention that the index column in Pandas can be accessed only using the "index" attribute.
 
 === Task ===
-Return valid Python code that computes the answer to the user query using the input dataset. The code will be executed from a Jupyter notebook,
-and the last command should return the number which answers the user query. The output code shouldn't depend on any external variables or manual post-processing.
-
-If the dataset or the information above is not sufficient to answer the query return None.
+**1. Do not use placeholder values (e.g., `1`, `2`, `3`) or comments like 'replace with actual id'.**
+**2. Return a single, self-contained Python code block that can be executed in a Jupyter notebook without any additional inputs or modifications.**
+**3. If the necessary values cannot be determined from the given data or documentation, return `None`.**
+**4. The last line of the code must return the final numeric result that answers the user query.**
+**5. If the dataset or the information above is not sufficient to answer the query, return None.**
