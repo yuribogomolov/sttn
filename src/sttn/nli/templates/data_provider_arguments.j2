@@ -10,7 +10,18 @@ Pick the data provider arguments that can be used to answer the following query.
 {{ data_description }}
 
 === Task ===
-Print a valid json message with the following fields:
-"feasible" - boolean "True" if the data provider can retrieve data for the user query and "False" otherwise
-"justification" - string with feasibility justification
-"arguments" - a json object with one field for each data provider argument with the right value
+Return only a valid JSON object with the following fields (no comments or extra text):
+
+feasible (boolean): true if the data provider can retrieve data for the user query, false otherwise.
+justification (string): A short explanation of why it is (or is not) feasible.
+arguments (object): A JSON object containing one field for each required data provider argument, with its appropriate value.
+
+Example (make sure to follow JSON standards, no comments, no extra keys, and no additional wrapping text):
+{
+  "feasible": true,
+  "justification": "Short explanation here.",
+  "arguments": {
+    "argument_name_1": "value1",
+    "argument_name_2": "value2"
+  }
+}
