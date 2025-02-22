@@ -1102,7 +1102,7 @@ def analyst_results(model_name: str, code_retry_limit: int):
         # Initialize an empty result dictionary
         empty_result_dict = {"data_provider_id": "",
                              "data_provider_args": {},
-                             "result": "No result",
+                             "result": None,
                              "executable": False,
                              "analysis_code": "NO CODE FROM ANALYST, RETURN 0"}
 
