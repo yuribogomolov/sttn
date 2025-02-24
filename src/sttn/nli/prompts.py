@@ -115,10 +115,11 @@ class PromptGenerator:
                 min_val = df[col].min()
                 max_val = df[col].max()
                 mean_val = df[col].mean()
-                schema_str += f"{col:20}: {dtype} - Min: {min_val}, Max: {max_val}, Avg: {mean_val:.2f}\n"
+                has_negative = min_val < 0
+                schema_str += f"{col:20}: {dtype} - Min: {min_val}, Max: {max_val}, Mean: {mean_val:.2f}, Has negative values: {has_negative}\n"
             else:
-                # Find the 5 most common values for string columns
-                common_vals = df[col].value_counts().head(5)
+                # Find the 10 most common values for string columns
+                common_vals = df[col].value_counts().head(10)
                 common_vals_str = ", ".join([f"{val} ({count})" for val, count in common_vals.items()])
                 schema_str += f"{col:20}: {dtype} - Most common values: {common_vals_str}\n"
         return schema_str
