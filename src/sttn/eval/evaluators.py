@@ -1115,58 +1115,41 @@ def analyst_results(model_name: str, code_retry_limit: int):
                 f"\n\nQuery_ID: {inputs['id']}, ERROR:\n\tAn error happened while launching Analyst (return empty dict instead)\n\tError message:")
             traceback.print_exc()
             print("\n\t|| END OF ERROR ||\n\n")
-            return empty_result_dict
+            error_str = traceback.format_exc()
+            return {**empty_result_dict, "result": error_str}
 
         try:
-            # print(f"\nQuery_ID: {inputs['id']}, DEBUG:\n\tChecking context for query ID {inputs['id']}:")
-            # Get the data provider from the context if it exists
-            if not context.data_provider or not context.feasible:
-                return empty_result_dict
-            else:
-                # print(f'\tData provider: {context.data_provider}')
+            result_dict = empty_result_dict.copy()
+
+            if context.data_provider:
+                result_dict['data_provider_id'] = context.data_provider_id
                 data_provider = context.data_provider
 
-            # Get the data provider id and args from the context if they both exist
-            if context.data_provider_id and context.data_provider_args:
-                data_provider_id = context.data_provider_id
-                # lowercase the values of context.data_provider_args dictionary
-                data_provider_args = context.data_provider_args
+            if context.data_provider_args:
                 data_provider_args = {k: v.lower().strip() if isinstance(v, str) else v for k, v in
-                                      data_provider_args.items()}
-            else:
-                return empty_result_dict
+                                      context.data_provider_args.items()}
+                result_dict['data_provider_args'] = data_provider_args
 
-            # Turn the result into a float if possible else None
-            try:
-                context.result = float(context.result)
-                result = round(context.result, 5)
-                if np.isnan(result):
-                    result = None
-            except Exception as e:
-                print(
-                    f"\nQuery_ID: {inputs['id']}, WARNING:\n\tError while converting result to float (return None instead)\n\tError message:{e}\n\t|| END OF ERROR ||\n")
-                result = None
-
-            # Add an evaluation query to the analysis code for the geospatial/temporal awareness
             if context.analysis_code:
                 analysis_code = f"We have the following data structure: {data_provider.__doc__} \
-                                \n{data_provider.get_data.__doc__}\
-                                \nWe retrieved the SpatioTemporalNetwork with the following arguments {context.data_provider_args}\
-                                \nThe code looks like this:\n" + str(context.analysis_code)
-            else:
-                analysis_code = "NO CODE FROM ANALYST, RETURN 0"
+                                                \n{data_provider.get_data.__doc__}\
+                                                \nWe retrieved the SpatioTemporalNetwork with the following arguments {context.data_provider_args}\
+                                                \nThe code looks like this:\n" + str(context.analysis_code)
+                result_dict["analysis_code"] = analysis_code
+                result_dict["executable"] = True
 
-            # extract temporary names from the analysis code and delete them
-            delete_generated_temp_vars(context.analysis_code, inputs['id'])
+            if context.result:
+                try:
+                    context.result = float(context.result)
+                    result = round(context.result, 5)
+                    if np.isnan(result):
+                        result = None
+                    result_dict['result'] = result
+                except Exception as e:
+                    print(
+                        f"\nQuery_ID: {inputs['id']}, WARNING:\n\tError while converting result to float (return None instead)\n\tError message:{e}\n\t|| END OF ERROR ||\n")
 
-            output = {"data_provider_id": data_provider_id,
-                      "data_provider_args": data_provider_args,
-                      "result": result,
-                      "executable": True,
-                      "analysis_code": analysis_code,
-                      }
-
-            return output
+            return result_dict
 
         except Exception as e:
             print(

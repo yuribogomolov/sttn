@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import pathlib
+import sys
 
 import requests
 
@@ -24,8 +25,9 @@ class DataProvider:
                         f.write(chunk)
         return file_path
 
-    def cache_dir(self):
-        return os.path.join(pathlib.Path.home(), '.sttn', 'data', self.__class__.__name__)
+    def cache_dir(self) -> str:
+        home = '/content/drive/MyDrive' if 'google.colab' in sys.modules else pathlib.Path.home()
+        return os.path.join(home, '.sttn', 'data', self.__class__.__name__)
 
     @staticmethod
     def hash_args(**kwargs) -> str:
