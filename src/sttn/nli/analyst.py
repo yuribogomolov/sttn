@@ -9,6 +9,7 @@ from langchain.prompts import (
     MessagesPlaceholder,
 )
 from langchain_core.messages import SystemMessage
+from langchain_deepseek import ChatDeepSeek
 from langchain_openai import ChatOpenAI
 
 from sttn.nli import Query
@@ -19,7 +20,10 @@ from sttn.nli.prompts import Context
 class STTNAnalyst:
     def __init__(self, verbose: bool = False, model_name: str = "gpt-4o-mini", code_retry_limit: int = 1):
         self._verbose = verbose
-        self._model = ChatOpenAI(temperature=0, model_name=model_name)
+        if model_name.startswith('deepseek'):
+            self._model = ChatDeepSeek(temperature=0, model=model_name)
+        else:
+            self._model = ChatOpenAI(temperature=0, model_name=model_name)
         prompt = ChatPromptTemplate.from_messages(
             [
                 SystemMessage(

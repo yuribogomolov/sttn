@@ -1,6 +1,6 @@
 name: Python Package using Conda
 
-on: [push]
+on: [ push ]
 
 jobs:
   build-linux:
@@ -9,24 +9,25 @@ jobs:
       max-parallel: 5
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v3
-      with:
-        python-version: '3.8'
-    - name: Install pipenv
-      run: |
-        python -m pip install --upgrade pipenv wheel
-    - id: cache-pipenv
-      uses: actions/cache@v1
-      with:
-        path: ~/.local/share/virtualenvs
-        key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile.lock') }}
-    - name: Install dependencies
-      if: steps.cache-pipenv.outputs.cache-hit != 'true'
-      run: |
-        pipenv install --deploy --dev
-    - name: Run tests
-      run: |
-        pipenv run py.test
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.11'
+      - name: Install pipenv
+        run: |
+          python -m pip install --upgrade pipenv wheel
+      - name: Cache pipenv virtualenv
+        id: cache-pipenv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/virtualenvs
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile.lock') }}
+      - name: Install dependencies
+        if: steps.cache-pipenv.outputs.cache-hit != 'true'
+        run: |
+          pipenv install --deploy --dev
+      - name: Run tests
+        run: |
+          pipenv run py.test
