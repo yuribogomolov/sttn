@@ -19,13 +19,22 @@ Dataset schema is described in the Data Provider Documentation section. If analy
 
 SpatioTemporalNetwork methods:
 filter_nodes(self, condition: pd.Series) -> SpatioTemporalNetwork:
-    On input accepts a boolean pd.Series with the same index as the nodes GeoDataFrame.
-    return a new SpatioTemporalNetwork !ONLY! with nodes where the input node condition is True, and adjacent edges.
-    e.g. running `sttn_network.filter_nodes(sttn_network.nodes['county'] == "Montgomery County, MD")` will ONLY return nodes and edges that are in Montgomery County, MD REMOVING all other nodes and edges.
+    On input accepts a boolean pd.Series with the same index as the nodes GeoDataFrame. 
+    return a new SpatioTemporalNetwork !ONLY! with nodes where the input node condition is True and edges where BOTH origin and destination are within the filtered nodes.
+    Example 1: if you have a query: "What is the number of trips done within Manhattan?",
+        Running `sttn_network.filter_nodes(sttn_network.nodes['borough'] == "Manhattan")` will be the right choice, and it will ONLY return nodes that are in Manhattan and edges that have BOTH origin and destination in Manhattan, REMOVING all other nodes and edges.
+    Example 2: if you have a query: "What is the number of workers commuting from Montgomery County, MD?", 
+        In this case, you MUST NOT use the 'filter_nodes' method because you are interested in edges that have ONLY the origin in Montgomery County, MD, but the destination can be ANYWHERE, so only work with 'filter_edges' method.
+    So before applying this method, think step-by-step about whether you need to restrict both origin and destination to some specified area or only one of them.
 
 filter_edges(self, condition: pd.Series) -> SpatioTemporalNetwork:
-    On input accepts a boolean pd.Series with the same index as the edges DataFrame.
+    On input accepts a boolean pd.Series with the same index as the nodes DataFrame. 
     return a new SpatioTemporalNetwork !ONLY! with edges where the input edge condition is True.
+    Before applying filter_edges: 
+        1. define the origin using keywords like 'originating', 'from', 'starting', etc.,
+        2. define the destination using keywords like 'destination', 'to', 'ending', etc.,
+        3. define additional filters if required,
+    Only after those steps, you can apply the filtering via the filter_edges method.
 
 sttn.plot module supports plotting functions:
 choropleth(sttn_network: SpatioTemporalNetwork, node_layers: Optional[List[str]] = None)
