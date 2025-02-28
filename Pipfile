@@ -25,6 +25,7 @@ igraph = "==0.11.8"
 python-igraph = "==0.11.8"
 fiona = "*"
 backoff = "*"
+pycombo = "*"
 
 [dev-packages]
 pytest = "*"
