@@ -23,8 +23,8 @@ class NycTaxiDataProvider(DataProvider):
     def build_network(taxi_trips, taxi_zones) -> network.SpatioTemporalNetwork:
         edges = taxi_trips.rename(
             columns={'PULocationID': 'origin', 'DOLocationID': 'destination', 'tpep_pickup_datetime': 'time'})
-        edges_casted = edges.astype({'origin': 'int32', 'destination': 'int32'})
-        taxi_zones = taxi_zones.rename(columns={'OBJECTID': 'id'}).astype({'id': 'int32'})
+        edges_casted = edges.astype({'origin': 'int64', 'destination': 'int64'})
+        taxi_zones = taxi_zones.rename(columns={'OBJECTID': 'id'}).astype({'id': 'int64'})
         taxi_zones = taxi_zones.set_index('id')
         return network.SpatioTemporalNetwork(nodes=taxi_zones, edges=edges_casted)
 
