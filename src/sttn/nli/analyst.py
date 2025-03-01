@@ -1,16 +1,11 @@
+import uuid
 from typing import Optional
 
 from IPython.core.interactiveshell import ExecutionResult
-from langchain.chains import LLMChain
-from langchain.memory import ConversationBufferMemory
-from langchain.prompts import (
-    ChatPromptTemplate,
-    HumanMessagePromptTemplate,
-    MessagesPlaceholder,
-)
-from langchain_core.messages import SystemMessage
 from langchain_deepseek import ChatDeepSeek
 from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import MessagesState, StateGraph, START
 
 from sttn.nli import Query
 from sttn.nli.data import NetworkBuilder
@@ -24,31 +19,24 @@ class STTNAnalyst:
             self._model = ChatDeepSeek(temperature=0, model=model_name)
         else:
             self._model = ChatOpenAI(temperature=0, model_name=model_name)
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                SystemMessage(
-                    content="You are a chatbot having a conversation with a human."
-                ),  # The persistent system prompt
-                MessagesPlaceholder(
-                    variable_name="chat_history"
-                ),  # Where the memory will be stored.
-                HumanMessagePromptTemplate.from_template(
-                    "{human_input}"
-                ),  # Where the human input will injected
-            ]
-        )
 
-        memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-        self._chain = LLMChain(
-            llm=self._model,
-            prompt=prompt,
-            verbose=verbose,
-            memory=memory,
-        )
-        self._network_builder = NetworkBuilder(model=self._chain)
+        workflow = StateGraph(state_schema=MessagesState)
+        workflow.add_edge(START, "model")
+        workflow.add_node("model", self.call_model)
+        self._memory = MemorySaver()
+        self._app = workflow.compile(checkpointer=self._memory)
+        thread_id = uuid.uuid4()
+        self._config = {"configurable": {"thread_id": thread_id}}
+
+        self._network_builder = NetworkBuilder(app=self._app, config=self._config)
         self._context: Optional[Context] = None
         self._model_name: str = model_name
         self._code_retry_limit: int = code_retry_limit
+
+    def call_model(self, state: MessagesState) -> dict:
+        print(f"Message state: {state['messages']}")
+        response = self._model.invoke(state["messages"])
+        return {"messages": response}
 
     def clarify(self, human_input: str) -> str:
         return self._chain.predict(human_input=human_input)
