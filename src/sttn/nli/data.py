@@ -1,3 +1,5 @@
+from json.decoder import JSONDecodeError
+
 import backoff
 import openai
 from langchain.chains import LLMChain
@@ -12,33 +14,38 @@ class NetworkBuilder:
     def __init__(self, model: LLMChain):
         self.model = model
 
-    @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=2, base=8, factor=1, max_value=60)
+    @backoff.on_exception(backoff.expo, (openai.RateLimitError, JSONDecodeError), max_tries=2, base=8, factor=1,
+                          max_value=60)
     def pick_data_provider(self, context: Context) -> DataProviderModel:
         parser = PydanticOutputParser(pydantic_object=DataProviderModel)
         prompt = PromptGenerator.generate_provider_prompt(context.query)
         output = self.model.predict(human_input=prompt)
         return parser.parse(self._sanitize_json_output(output))
 
-    @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=2, base=8, factor=1, max_value=60)
+    @backoff.on_exception(backoff.expo, (openai.RateLimitError, JSONDecodeError), max_tries=2, base=8, factor=1,
+                          max_value=60)
     def pick_provider_arguments(self, context: Context) -> DataProviderArgumentsModel:
         parser = PydanticOutputParser(pydantic_object=DataProviderArgumentsModel)
         prompt = PromptGenerator.generate_data_retrieval_prompt(context)
         output = self.model.predict(human_input=prompt)
         return parser.parse(self._sanitize_json_output(output))
 
-    @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=2, base=8, factor=1, max_value=60)
+    @backoff.on_exception(backoff.expo, (openai.RateLimitError, JSONDecodeError), max_tries=2, base=8, factor=1,
+                          max_value=60)
     def get_filtering_code(self, context: Context) -> str:
         prompt = PromptGenerator.generate_data_filtering_prompt(context)
         output = self.model.predict(human_input=prompt)
         return output
 
-    @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=2, base=8, factor=1, max_value=60)
+    @backoff.on_exception(backoff.expo, (openai.RateLimitError, JSONDecodeError), max_tries=2, base=8, factor=1,
+                          max_value=60)
     def get_analysis_code(self, context: Context) -> str:
         prompt = PromptGenerator.generate_data_analysis_prompt(context)
         output = self.model.predict(human_input=prompt)
         return self._sanitize_output(output)
 
-    @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=2, base=8, factor=1, max_value=60)
+    @backoff.on_exception(backoff.expo, (openai.RateLimitError, JSONDecodeError), max_tries=2, base=8, factor=1,
+                          max_value=60)
     def get_fixed_code(self, context: Context, exc: Exception) -> str:
         exc_str = self._describe_exc(exc=exc)
         prompt = PromptGenerator.fix_analysis_code_prompt(context=context, exc_str=exc_str)
