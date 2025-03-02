@@ -34,6 +34,7 @@ class STTNAnalyst:
         self._code_retry_limit: int = code_retry_limit
 
     def call_model(self, state: MessagesState) -> dict:
+        print(f"Message state: {state['messages']}")
         response = self._model.invoke(state["messages"])
         return {"messages": response}
 
