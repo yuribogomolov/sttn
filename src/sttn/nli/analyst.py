@@ -1,5 +1,6 @@
 from typing import Optional
 
+import urllib3
 from IPython.core.interactiveshell import ExecutionResult
 from langchain.chains import LLMChain
 from langchain.memory import ConversationBufferMemory
@@ -111,8 +112,12 @@ class STTNAnalyst:
 
         if self._verbose:
             print(f"Retrieving the data using {provider_id} provider with the following arguments {data_provider_args}")
-        network = data_provider.get_data(**data_provider_args.arguments)
-        context.network = network
+        try:
+            network = data_provider.get_data(**data_provider_args.arguments)
+            context.network = network
+        except urllib3.exceptions.ConnectTimeoutError as ex:
+            print(f"Data retrieval failed with {ex}")
+            return context
 
         filtering_code = self._network_builder.get_filtering_code(context=context)
         # generated filtering predicates are used only as a chain-of-thought at this moment
