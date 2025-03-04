@@ -17,7 +17,8 @@ TAXI_ZONE_SHAPE_URL = 'https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip
 class NycTaxiDataProvider(DataProvider):
     """New York Taxi data provider, builds a directed graph (network) where nodes represent taxi zones and edges
     represent taxi trips for a given month. Yellow and green taxi trip records include fields capturing
-    pick-up dates/times, pick-up and drop-off locations, itemized fares, and driver-reported passenger counts."""
+    pick-up dates/times, pick-up and drop-off locations, itemized fares, and driver-reported passenger counts.
+    The data covers trips within New York City and Newark Airport"""
 
     @staticmethod
     def build_network(taxi_trips, taxi_zones) -> network.SpatioTemporalNetwork:

@@ -9,6 +9,7 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
     """Longitudinal Employer-Household Dynamics Origin-Destination Employment Statistics
     data provider. Every node represents a census tract and every edge contains the number
     of people living in the origin and commuting to the destination tract.
+    The data covers all US states.
 
     Data spec: https://lehd.ces.census.gov/data/lodes/LODES7/LODESTechDoc7.5.pdf
     """
@@ -45,14 +46,13 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
             aggregated_edges.origin.isin(ids_to_keep) & aggregated_edges.destination.isin(ids_to_keep)]
         return network.SpatioTemporalNetwork(nodes=tracts_with_zip, edges=filtered_edges)
 
-
     def get_data(self, state: str, year: int, part: str = 'main', job_type: int = 0) -> network.SpatioTemporalNetwork:
         """
         Retrieves LEHD Origin-Destination Employment Statistics for a given state and year
 
         Args:
             state (str): lowercase, 2-letter postal code for a chosen state
-            year (str): Year of job data, starting from 2002
+            year (str): Year of job data, starting from 2002 to 2019
 
         Returns:
             SpatioTemporalNetwork: An STTN network where node represent census tracts and edges represent employment
