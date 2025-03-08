@@ -1,5 +1,6 @@
 from typing import Optional
 
+import requests
 import urllib3
 from IPython.core.interactiveshell import ExecutionResult
 from langchain.chains import LLMChain
@@ -116,6 +117,9 @@ class STTNAnalyst:
             network = data_provider.get_data(**data_provider_args.arguments)
             context.network = network
         except urllib3.exceptions.ConnectTimeoutError as ex:
+            print(f"Data retrieval failed with {ex}")
+            return context
+        except requests.exceptions.HTTPError as ex:
             print(f"Data retrieval failed with {ex}")
             return context
 
