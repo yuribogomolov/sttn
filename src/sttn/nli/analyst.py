@@ -58,6 +58,7 @@ class STTNAnalyst:
     def _execute_code(self, code: str) -> ExecutionResult:
         self._context.analysis_code = code
         get_ipython().set_next_input(code)
+        print(f"Executing code: {code}")
         result = get_ipython().run_cell(code)
         return result
 
