@@ -20,12 +20,13 @@ from sttn.nli.prompts import Context
 
 
 class STTNAnalyst:
-    def __init__(self, verbose: bool = False, model_name: str = "gpt-4o-mini", code_retry_limit: int = 1):
+    def __init__(self, verbose: bool = False, model_name: str = "gpt-4o-mini", code_retry_limit: int = 1,
+                 temperature: float = 0):
         self._verbose = verbose
         if model_name.startswith('deepseek'):
-            self._model = ChatDeepSeek(temperature=0, model=model_name)
+            self._model = ChatDeepSeek(temperature=temperature, model=model_name)
         else:
-            self._model = ChatOpenAI(temperature=0, model_name=model_name)
+            self._model = ChatOpenAI(temperature=temperature, model_name=model_name)
         prompt = ChatPromptTemplate.from_messages(
             [
                 SystemMessage(

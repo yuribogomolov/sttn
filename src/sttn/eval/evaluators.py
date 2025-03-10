@@ -1065,12 +1065,10 @@ def high_complexity_args_accuracy_summary_eval(runs: List[Run], examples: List[E
 
 @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=max_tries, base=base, factor=factor,
                       max_value=max_value)
-def get_context_with_backoff(inputs: dict, model_name: str, code_retry_limit: int):
-    analyst = STTNAnalyst(model_name=model_name, code_retry_limit=code_retry_limit)
-    # print(f"\nQuery_ID: {inputs['id']}, DEBUG:\n\tLaunched analyst...")
+def get_context_with_backoff(inputs: dict, model_name: str, code_retry_limit: int, temperature: float):
+    analyst = STTNAnalyst(model_name=model_name, code_retry_limit=code_retry_limit, temperature=temperature)
     context = analyst.chat(user_query=inputs["question"])
     context.analysis_code = str(context.analysis_code) if context.analysis_code else ''
-    # print(f"Query_ID: {inputs['id']}, DEBUG:\n\tContext returned!")
     return context
 
 
@@ -1087,13 +1085,14 @@ def delete_generated_temp_vars(analysis_code: str, id: int):
 
 
 @traceable
-def analyst_results(model_name: str, code_retry_limit: int):
+def analyst_results(model_name: str, code_retry_limit: int, temperature: float):
     """
     Wrapper function to get the results from the Analyst and return them in a dictionary
     Args:
         inputs: dict, the inputs to the Analyst
         model_name: str, the name of the model to use
         code_retry_limit: int, the number of times to retry the code
+        temperature: float, model temperature
     Returns:
         dict, the results from the Analyst
     """
@@ -1109,7 +1108,8 @@ def analyst_results(model_name: str, code_retry_limit: int):
         print(f"\nQuery_ID: {inputs['id']}, INFO:\n\tQuery:', {inputs['question']}\n")
         # Get the context from the Analyst
         try:
-            context = get_context_with_backoff(inputs=inputs, model_name=model_name, code_retry_limit=code_retry_limit)
+            context = get_context_with_backoff(inputs=inputs, model_name=model_name, code_retry_limit=code_retry_limit,
+                                               temperature=temperature)
         except Exception as e:
             print(
                 f"\n\nQuery_ID: {inputs['id']}, ERROR:\n\tAn error happened while launching Analyst (return empty dict instead)\n\tError message:")
