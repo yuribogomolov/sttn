@@ -54,8 +54,11 @@ class NetworkBuilder:
 
     @staticmethod
     def _sanitize_output(text: str) -> str:
-        _, after = text.split("```python")
-        return after.split("```")[0]
+        if "```python" in text:
+            _, after = text.split("```python")
+            return after.split("```")[0]
+        else:
+            return text
 
     @staticmethod
     def _sanitize_json_output(text: str) -> str:
