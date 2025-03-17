@@ -1,4 +1,4 @@
-Below we provide a dataset supplementary text file with description of data providers, awareness metrics and how to treat certain categories and situations represented in the queries.
+Below, we provide a dataset supplementary text file with the description of data providers, awareness metrics and how to treat certain categories and situations represented in the queries.
 
 # Used Data Providers
 ## Origin-Destination Employment Data Provider
@@ -79,7 +79,7 @@ The edges GeoPandas dataframe contains the following columns:
 - `fare_amount` (float64): Trip fare in USD.
 
 # Explaining the *awareness* features
-Below we provide the prompt that was given to the LLM to recognize the awareness features that the code should account for when working with spatio-temporal data.
+Below, we provide the prompt that was given to the LLM to recognize the awareness features that the code should account for when working with spatio-temporal data.
 ## Geospatial Awareness
 Geospatial awareness requires the code to account for different geospatial features and peculiarities like:
 
@@ -100,14 +100,14 @@ Geospatial awareness requires the code to account for different geospatial featu
 Temporal awareness requires the code to account for different temporal features like:
 
 1. **Temporal features specific to different contexts or regions**:
-    - Different public holidays, cultural calendars, fiscal years in different countries or regions.
+    - Different public holidays, cultural calendars, etc., in different countries or regions.
 2. **Proper filtering and aggregation of temporal features**:
     - Ensuring that all relevant temporal units are considered (e.g., not to miss hours/minutes while filtering by time or summing up daily data to get monthly totals).
 3. **Absence of temporal inconsistencies**:
     - Overlapping time periods, mismatched time zones, not accounting for leap years.
 
-# Ensuring Consistensy
-Below we provide the description of how to treat certain categories and situations and how we expected the model to treat such tasks to ensure consistency in the data processing.
+# Ensuring Consistency
+Below, we provide a description of how to treat certain categories and situations and how we expected the model to treat such tasks to ensure consistency in the data processing.
 ## Graph Analysis
 We have **directed graphs** in both providers. Therefore, any graph-related tasks such as `network_density` and `centrality_degree` must account for this unless stated otherwise.
 
