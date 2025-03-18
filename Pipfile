@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 sttn = { editable = true, path = "." }
-pandas = ">=2.0.0"
+pandas = ">=2.2.2"
 numpy = "*"
 networkx = "*"
 geopandas = "*"
