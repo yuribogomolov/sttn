@@ -10,7 +10,7 @@ from langchain.prompts import (
     HumanMessagePromptTemplate,
     MessagesPlaceholder,
 )
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_deepseek import ChatDeepSeek
 from langchain_openai import ChatOpenAI
 
@@ -26,12 +26,22 @@ class STTNAnalyst:
         if model_name.startswith('deepseek'):
             self._model = ChatDeepSeek(temperature=temperature, model=model_name)
         else:
-            self._model = ChatOpenAI(temperature=temperature, model_name=model_name)
+            if model_name.startswith('o'):
+                # temperature is not support by o models
+                self._model = ChatOpenAI(model_name=model_name)
+            else:
+                self._model = ChatOpenAI(model_name=model_name, temperature=temperature)
+
+        if model_name.startswith('o1'):
+            intro_msg = HumanMessage("You are a chatbot having a conversation with a human.")
+        else:
+            intro_msg = SystemMessage(
+                content="You are a chatbot having a conversation with a human."
+            )
+
         prompt = ChatPromptTemplate.from_messages(
             [
-                SystemMessage(
-                    content="You are a chatbot having a conversation with a human."
-                ),  # The persistent system prompt
+                intro_msg,  # The persistent system prompt
                 MessagesPlaceholder(
                     variable_name="chat_history"
                 ),  # Where the memory will be stored.
