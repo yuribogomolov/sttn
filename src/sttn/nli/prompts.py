@@ -157,11 +157,14 @@ class PromptGenerator:
         return prompt_str
 
     @staticmethod
-    def generate_data_filtering_prompt(context: Context) -> str:
-        template = PromptGenerator.get_template("data_filter.j2")
+    def generate_data_analysis_prompt(context: Context) -> str:
+        template = PromptGenerator.get_template("data_provider_arguments.j2")
 
         data_provider = context.data_provider.__class__
         data_provider_instance = context.data_provider
+
+        environment = Environment(loader=PackageLoader("sttn", package_path="nli/templates"))
+        template = environment.get_template("data_analysis.j2")
         nodes_description = PromptGenerator.get_df_description(context.network.nodes)
         edges_description = PromptGenerator.get_df_description(context.network.edges)
 
@@ -172,25 +175,6 @@ class PromptGenerator:
             "data_description": data_provider_instance.get_data.__doc__,
             "nodes_description": nodes_description,
             "edges_description": edges_description
-        }
-
-        prompt_str = template.render(jcontext)
-        return prompt_str
-
-    @staticmethod
-    def generate_data_analysis_prompt(context: Context) -> str:
-        template = PromptGenerator.get_template("data_provider_arguments.j2")
-
-        data_provider = context.data_provider.__class__
-        data_provider_instance = context.data_provider
-
-        environment = Environment(loader=PackageLoader("sttn", package_path="nli/templates"))
-        template = environment.get_template("data_analysis.j2")
-        jcontext = {
-            "user_query": context.query.query,
-            "data_provider_documentation": data_provider.__doc__,
-            "data_provider_arguments": context.data_provider_args,
-            "data_description": data_provider_instance.get_data.__doc__,
         }
 
         prompt_str = template.render(jcontext)

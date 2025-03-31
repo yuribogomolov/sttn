@@ -135,10 +135,6 @@ class STTNAnalyst:
             print(f"Data retrieval failed with {ex}")
             return context
 
-        filtering_code = self._network_builder.get_filtering_code(context=context)
-        # generated filtering predicates are used only as a chain-of-thought at this moment
-        print(f"Generated filtering code:\n{filtering_code}\n")
-
         analysis_code = self._network_builder.get_analysis_code(context=context)
         content = analysis_code
 

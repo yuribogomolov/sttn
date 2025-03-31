@@ -17,16 +17,7 @@ The following arguments were used to retrieve the `sttn` dataset below:
 The input data is stored in the `sttn` variable as a `SpatioTemporalNetwork` object created by the data provider described above.
 Nodes and edges are represented as dataframes and may contain extra columns in addition to the index and origin/destination
 columns representing the network structure.
-`sttn.nodes` returns a GeoPandas dataframe with nodes and their geometry.
-Description:
-{{ nodes_description }}
 
-!Warning: double-check the query before applying 'filter_nodes', as it will only leave edges where BOTH origin and destination are in the filtered nodes!
-So first think about the origin filter and then the destination filter. Step-by-step. And only then decide whether to apply this method or not
-
-`sttn.edges` returns a Pandas dataframe with edges.
-Description:
-{{ edges_description }}
 
 !Warning: double-check the query before applying 'filter_edges'
 First, define the origin stated in the query. Second, define the destination. Third, define additional filters if required. Step-by-step. And only then apply the method.
