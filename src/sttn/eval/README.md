@@ -1,5 +1,10 @@
-Below, we provide a dataset supplementary text file with the description of data providers, awareness metrics, and how to treat certain categories and situations represented in the queries.
-
+Below, we provide a dataset supplementary text file with the generation prompt explanations, description of data providers, awareness metrics, and how to treat certain categories and situations represented in the queries.
+# Dataset Generation Prompt
+In the prompt below, we didn't provide a description of the providers and awareness metrics to reduce the size. In the actual prompt, they were presented exactly in the same format as described in the following sections. Also, we've substituted some of the numbers with variables so that one can control the dataset size and variability :
+- $G$ - Number of created task groups;
+- $N$ - Number of examples per group (bag);
+- $P$ - Number of poorly-written examples in a bag;
+- $E$ - Number of non-executable examples in a bag.
 # Used Data Providers
 ## Origin-Destination Employment Data Provider
 ### Description
