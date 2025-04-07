@@ -1,4 +1,4 @@
-Below, we provide a dataset supplementary text file with the description of data providers, awareness metrics and how to treat certain categories and situations represented in the queries.
+Below, we provide a dataset supplementary text file with the description of data providers, awareness metrics, and how to treat certain categories and situations represented in the queries.
 
 # Used Data Providers
 ## Origin-Destination Employment Data Provider
@@ -62,7 +62,7 @@ Retrieves New York City taxi data.
 ### Data
 
 #### Nodes
-The nodes GeoPandas dataframe contains the following:
+The nodes GeoPandas DataFrame contains the following:
 - **index**:
     - `id` (int64): Index, represents taxi zone id.
 - **columns**:
@@ -71,7 +71,7 @@ The nodes GeoPandas dataframe contains the following:
     - `geometry` (shape): Shape object for the zone.
 
 #### Edges
-The edges GeoPandas dataframe contains the following columns:
+The edges GeoPandas DataFrame contains the following columns:
 - `origin` (int64): Trip origin taxi zone id.
 - `destination` (int64): Trip destination taxi zone id.
 - `time` (datetime64[ns]): Trip start time.
@@ -111,11 +111,12 @@ Below, we provide a description of how to treat certain categories and situation
 ## Graph Analysis
 We have **directed graphs** in both providers. Therefore, any graph-related tasks such as `network_density` and `centrality_degree` must account for this unless stated otherwise.
 
-## Spatial Queries
-When handling queries with **cardinal directions** (e.g., "Find commutes from county A to the points north of county A"), use the memorised geographical knowledge or **centroids** of the entire county. For example, *to find counties west of county A*:
+## Cardinal Direction Queries
+When handling queries with **cardinal directions** (e.g., "Find commutes from county A to the points north of county A"), use the available geographical knowledge or **centroids** of the entire county. For example, *to find counties western of county A*:
 1. Find the centroid of the **entire** county.
 2. Look for census tracts with centroids where the **x**-coordinate is smaller (to the left) than the **x**-coordinate of the county centroid.
 3. **Filter out** the destination census tracts of the origin county’s (county A) census tracts that might be located left of the county’s centroid.
+We referred to the Deﬁnitions (especially 7.3) presented in the paper [Schneider, Markus & Chen, Tao & Viswanathan, Ganesh & Yuan, Wenjie. (2012). Cardinal Directions between Complex Regions. ACM Transactions on Database Systems (TODS). 37. 10.1145/2188349.2188350. ].(https://www.researchgate.net/publication/262403938_Cardinal_Directions_between_Complex_Regions).
 
 ## Community Detection
 For `community_detection` tasks, always use the internal **[Combo](https://github.com/Alexander-Belyi/Combo)** algorithm with `random_state=0` (set as the default value).
