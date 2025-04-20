@@ -1,3 +1,5 @@
+import geopandas as gpd
+import numpy as np
 import pandas as pd
 
 from sttn import network
@@ -34,7 +36,8 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
         tract_to_zip = renamed[renamed.zip != 99999].groupby('id').first()
         tract_to_zip['zip'] = tract_to_zip['zip'].astype(str)
         tract_geo_columns = ['GEOID', 'geometry']
-        tract_shapes = census.get_tract_geo(state=state, year=year)
+        tract_shapes = gpd.read_file(self.tract_shapes_fname)
+        tract_shapes.GEOID = tract_shapes.GEOID.astype(np.int64)  # np.int64 to fix windows C long issue
         # filter out water-only tracts:
         filtered_tracts = tract_shapes[tract_shapes.ALAND > 0]
         indexed_tracts = filtered_tracts[tract_geo_columns].set_index('GEOID')
@@ -94,3 +97,6 @@ class OriginDestinationEmploymentDataProvider(DataProvider):
 
         xwalk_url = state_url + '/' + xwalk_fname
         self.xwalk_fname = self.cache_file(xwalk_url)
+
+        tract_shapes_url = census.get_tract_geo_url(state=state, year=year)
+        self.tract_shapes_fname = self.cache_file(tract_shapes_url)
