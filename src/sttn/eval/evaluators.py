@@ -13,10 +13,10 @@ from langsmith.schemas import Example, Run
 from sttn.nli.analyst import STTNAnalyst
 
 # Parameters for exponential backoff
-max_tries = 3  # max tries before giving up
-base = 8  # initial backoff time in seconds
-factor = 1  # backoff factor
-max_value = 60  # max backoff time in seconds
+max_tries=3  # max tries before giving up
+base=8  # initial backoff time in seconds
+factor=1  # backoff factor
+max_value=60  # max backoff time in seconds
 
 
 # reformat the whole file as class
@@ -24,19 +24,24 @@ class Evaluators:
     def __init__(self, eval_llm: ChatOpenAI):
         # Evaluating LLM
         self.eval_llm = eval_llm
-
     ######--------------------------------------- EVALUATORS (evaluate each example) ---------------------------------------######
 
     def data_provider_id_match(self, run: Run, example: Example) -> dict:
         ref_provider_id = example.outputs["data_provider_id"]
-        pred_provider_id = run.outputs["data_provider_id"]
+        if run.outputs:
+            pred_provider_id = run.outputs.get("data_provider_id", None)
+        else:
+            pred_provider_id = None
         score = pred_provider_id == ref_provider_id
         return {"key": "data_provider_match",
                 "score": int(score)}
 
     def data_provider_args_match(self, run: Run, example: Example) -> dict:
         ref_provider_args = example.outputs["data_provider_args"]
-        pred_provider_args = run.outputs["data_provider_args"]
+        if run.outputs:
+            pred_provider_args = run.outputs.get("data_provider_args", {})
+        else:
+            pred_provider_args = {}
         score = pred_provider_args == ref_provider_args
         return {"key": "data_provider_args_match",
                 "score": int(score)}
@@ -47,45 +52,49 @@ class Evaluators:
                 ref_result = None
             else:
                 ref_result = example.outputs["result"] = float(example.outputs["result"])
-                ref_result = round(ref_result, 2)
-
-            if run.outputs["result"] in [None, "", "null", "Null", "NULL", "None", "none"]:
+                ref_result = round(ref_result, 5)
+            
+            if (run.outputs["result"] in [None, "", "null", "Null", "NULL", "None", "none"]
+               or type(run.outputs["result"]) == str and run.outputs["result"].find("Traceback") != -1):
                 pred_result = None
             else:
                 pred_result = run.outputs["result"] = float(run.outputs["result"])
-                pred_result = round(pred_result, 2)
+                pred_result = round(pred_result, 5)
 
             score = pred_result == ref_result
 
             return {"key": "result_match",
                     "score": int(score)}
-
+        
         except KeyError as e:
             print(f"KeyERROR for Query_ID {example.inputs['id']}:\n\t`{str(e)}` attribute is MISSING in the dataset\n")
             return {"key": "result_match",
                     "score": -1}
         except Exception as e:
-            print(
-                f"ERROR in result_match for Query_ID {example.inputs['id']}:\n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in result_match for Query_ID {example.inputs['id']}:\n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "result_match",
                     "score": 0}
 
     def executable_match(self, run: Run, example: Example) -> dict:
         ref_provider_args = example.outputs["executable"]
-        pred_provider_args = run.outputs["executable"]
+        if run.outputs:
+            pred_provider_args = run.outputs.get("executable", False)
+        else:
+            pred_provider_args = False
+        
         score = pred_provider_args == ref_provider_args
         return {"key": "executable",
                 "score": bool(score)}
 
     ######--------------------------------------- LLM EVALUATORS (evaluate each example) ---------------------------------------######
-
+    
     def _get_geosp_aware_eval(self):
         geosp_aware_eval = LangChainStringEvaluator(
-            "criteria",  # "labeled_score_string",
+            "criteria",# "labeled_score_string", 
             config={
                 # Use eval_llm to evaluate the code 
                 "llm": self.eval_llm,
-                "criteria": {
+                "criteria": {            
                     # Correct naming (e.g. Manhattan, Staten Island counties doesn't exist (only boroughs), it's New York and Richmond counties), identification (e.g. didn't pick a street or city with similar/same name instead of requested county or district) and use of geographic entities (e.g., counties, cities, census tracts, taxi zones, zip codes, districts). 
                     "geospatial_awareness_llm_eval": "Evaluate whether the assistanse AI properly accounted for the geospatial features and relationships in the code based on the received SpatioTemporalNetwork and user's input query.\nThe evaluation should consider: \
                                             \n1.Abscence of naming overlap (e.g., didn't pick wrong entity (e.g., street or city with similar/same name) instead of requested entity (e.g., county or district)).\
@@ -98,15 +107,15 @@ class Evaluators:
                                             \nProvide the score ONLY for addressing the main geospatial requirements of the input query,\
                                             ignoring all other errors or inconsistencies unrelated to the geospatial feature handling in the code (like code efficiency, columns/index mismatches, previous errors, etc.)\
                                             If the query doesn't require handling geospatial features, provide the score of 1.",
-                },
+                    },
             },
             prepare_data=lambda run, example: {
-                "prediction": run.outputs["analysis_code"],
+                "prediction": run.outputs["analysis_code"], 
                 "input": example.inputs["question"],
-            }
+            }  
         )
         return geosp_aware_eval
-
+        
     def _get_temp_aware_eval(self):
         temp_aware_eval = LangChainStringEvaluator(
             # 1.Assess if the code can handle temporal features specific to different contexts or regions (e.g., fiscal years in different countries, cultural calendars, different public holidays).\
@@ -130,15 +139,14 @@ class Evaluators:
                 },
             },
             prepare_data=lambda run, example: {
-                "prediction": run.outputs["analysis_code"],
+                "prediction": run.outputs["analysis_code"], 
                 "input": example.inputs["question"],
             }
         )
         return temp_aware_eval
 
     # Create geospatial awareness evaluator function with backoff
-    @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=max_tries, base=base, factor=factor,
-                          max_value=max_value)
+    @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=max_tries, base=base, factor=factor, max_value=max_value)
     @traceable
     def get_geosp_aware_eval_score(self, run: Run, example: Example) -> float:
         try:
@@ -156,37 +164,35 @@ class Evaluators:
                 return {"key": "__ignore",
                         "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in get_geosp_aware_eval_score for Query_ID {example.inputs['id']}: \n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in get_geosp_aware_eval_score for Query_ID {example.inputs['id']}: \n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             print("\tWe ignore this query")
             return {"key": "__ignore",
                     "score": -1.0}
 
     # Create temporal awareness evaluator function with backoff
-    @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=max_tries, base=base, factor=factor,
-                          max_value=max_value)
+    @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=max_tries, base=base, factor=factor, max_value=max_value)
     @traceable
     def get_temp_aware_eval_score(self, run: Run, example: Example) -> float:
         try:
             if "temporal awareness" in example.outputs['categories']:
                 # Evaluate the temporal awareness
-                result = self._get_temp_aware_eval().as_run_evaluator()(run, example)
+                result = self._get_temp_aware_eval().as_run_evaluator()(run,example)
                 # Return the score and evaluating LLM output text
                 if result.score in [None, ""]:
                     score = 0.5
                 else:
                     score = result.score
                 return {"key": "temporal_awareness_llm",
-                        "score": score}  # , result.value
+                        "score": score}#, result.value
             else:
                 return {"key": "__ignore",
                         "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in get_temp_aware_eval_score for Query_ID {example.inputs['id']}: \n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in get_temp_aware_eval_score for Query_ID {example.inputs['id']}: \n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             print("\tWe ignore this query")
             return {"key": "__ignore",
                     "score": -1.0}
+    
 
 
 ######---------------------------------- SUMMARY EVALUATORS (evaluate all examples) ----------------------------------######
@@ -194,8 +200,7 @@ class Evaluators:
 class SummaryEvaluators:
     def __init__(self, evaluators: Evaluators):
         self.evaluators = evaluators
-
-    # --------------------------------------- Specific data_provider_`ids` ---------------------------------------#
+    #--------------------------------------- Specific data_provider_`ids` ---------------------------------------#
     # Taxi
     def taxi_dp_id_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
         """
@@ -216,22 +221,19 @@ class SummaryEvaluators:
                 if example.outputs["data_provider_id"] == "NycTaxiDataProvider":
                     sum_id_match += self.evaluators.data_provider_id_match(run, example)['score']
                     taxi_examples += 1
-
+            
             return {"key": "taxi_dp_id_accuracy",
-                    "score": sum_id_match / taxi_examples}
+                    "score": sum_id_match/taxi_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in taxi_dp_id_accuracy_summary_eval:\n\t`NycTaxiDataProvider` is MISSING in this dataset")
+            print("ZeroDivisionERROR in taxi_dp_id_accuracy_summary_eval:\n\t`NycTaxiDataProvider` is MISSING in this dataset")
             return {"key": "taxi_dp_id_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in taxi_dp_id_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in taxi_dp_id_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "taxi_dp_id_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in taxi_dp_id_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in taxi_dp_id_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\tTraceback:\n{traceback.format_exc()}\n\t||END OF MESSAGE||\n")
             return {"key": "taxi_dp_id_accuracy",
                     "score": -1.0}
 
@@ -255,26 +257,23 @@ class SummaryEvaluators:
                 if example.outputs["data_provider_id"] == "OriginDestinationEmploymentDataProvider":
                     sum_id_match += self.evaluators.data_provider_id_match(run, example)['score']
                     lehd_examples += 1
-
+            
             return {"key": "lehd_dp_id_accuracy",
-                    "score": sum_id_match / lehd_examples}
+                    "score": sum_id_match/lehd_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in lehd_dp_accuracy_summary_eval:\n\t`OriginDestinationEmploymentDataProvider` is MISSING in this dataset")
+            print("ZeroDivisionERROR in lehd_dp_accuracy_summary_eval:\n\t`OriginDestinationEmploymentDataProvider` is MISSING in this dataset")
             return {"key": "lehd_dp_id_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in lehd_dp_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in lehd_dp_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "lehd_dp_id_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in lehd_dp_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in lehd_dp_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "lehd_dp_id_accuracy",
                     "score": -1.0}
 
-    # --------------------------------------- Specific data_provider_`args` (when `id` predicted correctly) ---------------------------------------#
+    #--------------------------------------- Specific data_provider_`args` (when `id` predicted correctly) ---------------------------------------#
     # Taxi
     def taxi_dp_args_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
         """
@@ -300,22 +299,19 @@ class SummaryEvaluators:
                     if id_match:
                         args_match = self.evaluators.data_provider_args_match(run, example)['score']
                         sum_args_match += args_match
-
+        
             return {"key": "taxi_dp_args_accuracy",
-                    "score": sum_args_match / taxi_examples}
+                    "score": sum_args_match/taxi_examples}
         except ZeroDivisionError:
-            print(
-                f"ZeroDivisionERROR in taxi_dp_args_accuracy_summary_eval:\n\t`NycTaxiDataProvider` is MISSING in this dataset")
+            print(f"ZeroDivisionERROR in taxi_dp_args_accuracy_summary_eval:\n\t`NycTaxiDataProvider` is MISSING in this dataset")
             return {"key": "taxi_dp_args_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in taxi_dp_args_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in taxi_dp_args_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "taxi_dp_args_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in taxi_dp_args_accuracy_summary_eval:\n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in taxi_dp_args_accuracy_summary_eval:\n\tAn unepxpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "taxi_dp_args_accuracy",
                     "score": -1.0}
 
@@ -339,31 +335,28 @@ class SummaryEvaluators:
                 if example.outputs["data_provider_id"] == "OriginDestinationEmploymentDataProvider":
                     lehd_examples += 1
                     id_match = self.evaluators.data_provider_id_match(run, example)['score']
-
+                    
                     # check the args only when id was predicted correctly
                     if id_match:
                         args_match = self.evaluators.data_provider_args_match(run, example)['score']
                         sum_args_match += args_match
-
+            
             return {"key": "lehd_dp_args_accuracy",
-                    "score": sum_args_match / lehd_examples}
+                    "score": sum_args_match/lehd_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in lehd_dp_args_accuracy_summary_eval:\n\t`OriginDestinationEmploymentDataProvider` is MISSING in this dataset")
+            print("ZeroDivisionERROR in lehd_dp_args_accuracy_summary_eval:\n\t`OriginDestinationEmploymentDataProvider` is MISSING in this dataset")
             return {"key": "lehd_dp_args_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in lehd_dp_args_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in lehd_dp_args_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "lehd_dp_args_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in lehd_dp_args_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in lehd_dp_args_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "lehd_dp_args_accuracy",
                     "score": -1.0}
-
-    # --------------------------------------- Specific data_provider `result` (when `id` and `args` predicted correctly) ---------------------------------------#
+        
+    #--------------------------------------- Specific data_provider `result` (when `id` and `args` predicted correctly) ---------------------------------------#
     # Taxi
     def taxi_dp_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
         """
@@ -387,29 +380,26 @@ class SummaryEvaluators:
                     # check the args only when id was predicted correctly
                     if id_match:
                         id_args_match = self.evaluators.data_provider_args_match(run, example)['score']
-
+                        
                         # check the result only when id and args were predicted correctly
                         if id_args_match:
                             sum_result_match += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "taxi_dp_result_accuracy",
-                    "score": sum_result_match / taxi_examples}
+                    "score": sum_result_match/taxi_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in taxi_dp_result_accuracy_summary_eval:\n\t`NycTaxiDataProvider` or 'result' attribute is MISSING in this dataset")
+            print("ZeroDivisionERROR in taxi_dp_result_accuracy_summary_eval:\n\t`NycTaxiDataProvider` or 'result' attribute is MISSING in this dataset")
             return {"key": "taxi_dp_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in taxi_dp_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in taxi_dp_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "taxi_dp_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in taxi_dp_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in taxi_dp_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "taxi_dp_result_accuracy",
                     "score": -1.0}
-
+        
     # LEHD
     def lehd_dp_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
         """
@@ -437,30 +427,26 @@ class SummaryEvaluators:
                         # check the result only when id and args were predicted correctly
                         if id_args_match:
                             sum_result_match += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "lehd_dp_result_accuracy",
-                    "score": sum_result_match / lehd_examples}
+                    "score": sum_result_match/lehd_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in lehd_dp_result_accuracy_summary_eval:\n\t`OriginDestinationEmploymentDataProvider` or 'result' attribute is MISSING in this dataset")
+            print("ZeroDivisionERROR in lehd_dp_result_accuracy_summary_eval:\n\t`OriginDestinationEmploymentDataProvider` or 'result' attribute is MISSING in this dataset")
             return {"key": "lehd_dp_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in lehd_dp_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in lehd_dp_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "lehd_dp_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in lehd_dp_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in lehd_dp_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "lehd_dp_result_accuracy",
                     "score": -1.0}
-
     ###
 
     ###--------------------------------------- Categories ---------------------------------------###
     ###
-    # --------------------------------------- Geo-spatial awareness ---------------------------------------#
+    #--------------------------------------- Geo-spatial awareness ---------------------------------------#
     def geospatial_awr_llm_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
         """
         Evaluator for geospatial awareness accuracy.
@@ -479,28 +465,24 @@ class SummaryEvaluators:
             for run, example in zip(runs, examples):
                 if "geospatial awareness" in example.outputs['categories']:
                     geospatial_examples += 1
-                    geosp_aware_score = run.feedback_stats['geospatial_awareness'][
-                        'avg']  # geosp_aware_score, geosp_aware_output
+                    geosp_aware_score = run.feedback_stats['geospatial_awareness']['avg'] # geosp_aware_score, geosp_aware_output
                     if geosp_aware_score != None:
                         sum_geospatial_awr += geosp_aware_score
                     # elif geosp_aware_output != None:
                     #     sum_geospatial_awr += 
-
+            
             return {"key": "geospat_awr_llm_eval",
-                    "score": sum_geospatial_awr / geospatial_examples}
+                    "score": sum_geospatial_awr/geospatial_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in geospatial_awr_llm_accuracy_summary_eval:\n\t`geospatial awareness` category is MISSING in this dataset")
+            print("ZeroDivisionERROR in geospatial_awr_llm_accuracy_summary_eval:\n\t`geospatial awareness` category is MISSING in this dataset")
             return {"key": "geospat_awr_llm_eval",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in geospatial_awr_llm_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in geospatial_awr_llm_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "geospat_awr_llm_eval",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in geospatial_awr_llm_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in geospatial_awr_llm_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "geospat_awr_llm_eval",
                     "score": -1.0}
 
@@ -530,22 +512,19 @@ class SummaryEvaluators:
                         # check the result only when id and args were predicted correctly
                         if id_args_match:
                             sum_result_match += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "geospat_awr_result_accuracy",
-                    "score": sum_result_match / geospatial_examples}
+                    "score": sum_result_match/geospatial_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in geospatial_awr_result_accuracy_summary_eval:\n\t`geospatial awareness` or 'result' attributes are MISSING in this dataset")
+            print("ZeroDivisionERROR in geospatial_awr_result_accuracy_summary_eval:\n\t`geospatial awareness` or 'result' attributes are MISSING in this dataset")
             return {"key": "geospat_awr_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in geospatial_awr_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in geospatial_awr_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "geospat_awr_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in geospatial_awr_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in geospatial_awr_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "geospat_awr_result_accuracy",
                     "score": -1.0}
 
@@ -572,20 +551,17 @@ class SummaryEvaluators:
                         sum_temporal_awr += temp_aware_score
 
             return {"key": "temp_awr_llm_eval",
-                    "score": sum_temporal_awr / temporal_examples}
+                    "score": sum_temporal_awr/temporal_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in temporal_awr_llm_accuracy_summary_eval:\n\t`temporal awareness` category is MISSING in this dataset")
+            print("ZeroDivisionERROR in temporal_awr_llm_accuracy_summary_eval:\n\t`temporal awareness` category is MISSING in this dataset")
             return {"key": "temp_awr_llm_eval",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in temporal_awr_llm_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in temporal_awr_llm_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "temp_awr_llm_eval",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in temporal_awr_llm_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in temporal_awr_llm_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "temp_awr_llm_eval",
                     "score": -1.0}
 
@@ -615,22 +591,19 @@ class SummaryEvaluators:
                         # check the result only when id and args were predicted correctly
                         if id_args_match:
                             sum_result_match += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "temp_awr_result_accuracy",
-                    "score": sum_result_match / temporal_examples}
+                    "score": sum_result_match/temporal_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in temporal_awr_result_accuracy_summary_eval:\n\t`temporal awareness` category is MISSING in this dataset")
+            print("ZeroDivisionERROR in temporal_awr_result_accuracy_summary_eval:\n\t`temporal awareness` category is MISSING in this dataset")
             return {"key": "temp_awr_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in temporal_awr_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in temporal_awr_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "temp_awr_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in temporal_awr_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in temporal_awr_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "temp_awr_result_accuracy",
                     "score": -1.0}
 
@@ -661,22 +634,19 @@ class SummaryEvaluators:
                         # check the result only when id and args were predicted correctly
                         if id_args_match:
                             sum_result_match += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "comm_det_result_accuracy",
-                    "score": sum_result_match / comm_det_examples}
+                    "score": sum_result_match/comm_det_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in comm_det_result_accuracy_summary_eval:\n\t`community detection` category is MISSING in this dataset")
+            print("ZeroDivisionERROR in comm_det_result_accuracy_summary_eval:\n\t`community detection` category is MISSING in this dataset")
             return {"key": "comm_det_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in comm_det_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in comm_det_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "comm_det_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in comm_det_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in comm_det_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "comm_det_result_accuracy",
                     "score": -1.0}
 
@@ -707,22 +677,19 @@ class SummaryEvaluators:
                         # check the result only when id and args were predicted correctly
                         if id_args_match:
                             sum_result_match += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "pagerank_result_accuracy",
-                    "score": sum_result_match / pagerank_examples}
+                    "score": sum_result_match/pagerank_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in pagerank_result_accuracy_summary_eval:\n\t`PageRank` category is MISSING in this dataset")
+            print("ZeroDivisionERROR in pagerank_result_accuracy_summary_eval:\n\t`PageRank` category is MISSING in this dataset")
             return {"key": "pagerank_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in pagerank_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in pagerank_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "pagerank_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in pagerank_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in pagerank_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "pagerank_result_accuracy",
                     "score": -1.0}
 
@@ -753,22 +720,19 @@ class SummaryEvaluators:
                         # check the result only when id and args were predicted correctly
                         if id_args_match:
                             sum_result_match += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "net_dens_result_accuracy",
-                    "score": sum_result_match / net_dens_examples}
+                    "score": sum_result_match/net_dens_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in net_dens_result_accuracy_summary_eval:\n\t`network density` category is MISSING in this dataset")
+            print("ZeroDivisionERROR in net_dens_result_accuracy_summary_eval:\n\t`network density` category is MISSING in this dataset")
             return {"key": "net_dens_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in net_dens_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in net_dens_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "net_dens_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in net_dens_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in net_dens_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "net_dens_result_accuracy",
                     "score": -1.0}
 
@@ -799,22 +763,19 @@ class SummaryEvaluators:
                         # check the result only when id and args were predicted correctly
                         if id_args_match:
                             sum_result_match += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "cen_deg_result_accuracy",
-                    "score": sum_result_match / cen_deg_examples}
+                    "score": sum_result_match/cen_deg_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in cen_deg_result_accuracy_summary_eval:\n\t`centrality degree` category is MISSING in this dataset")
+            print("ZeroDivisionERROR in cen_deg_result_accuracy_summary_eval:\n\t`centrality degree` category is MISSING in this dataset")
             return {"key": "cen_deg_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in cen_deg_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in cen_deg_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "cen_deg_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in cen_deg_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in cen_deg_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "cen_deg_result_accuracy",
                     "score": -1.0}
 
@@ -845,22 +806,19 @@ class SummaryEvaluators:
                         # check the result only when id and args were predicted correctly
                         if id_args_match:
                             sum_result_match += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "clust_coef_result_accuracy",
-                    "score": sum_result_match / clust_coef_examples}
+                    "score": sum_result_match/clust_coef_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in clust_coef_result_accuracy_summary_eval:\n\t`clustering coefficient` category is MISSING in this dataset")
+            print("ZeroDivisionERROR in clust_coef_result_accuracy_summary_eval:\n\t`clustering coefficient` category is MISSING in this dataset")
             return {"key": "clust_coef_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in clust_coef_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in clust_coef_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "clust_coef_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in clust_coef_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in clust_coef_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "clust_coef_result_accuracy",
                     "score": -1.0}
 
@@ -887,22 +845,19 @@ class SummaryEvaluators:
                     if id_match:
                         args_match = self.evaluators.data_provider_args_match(run, example)['score']
                         poorly_written_correct_id_and_args += args_match
-
+            
             return {"key": "poorly_written_args_accuracy",
-                    "score": poorly_written_correct_id_and_args / poorly_written_examples}
+                    "score": poorly_written_correct_id_and_args/poorly_written_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in poorly_written_args_accuracy_summary_eval:\n\t`poorly_written` feature is MISSING in this dataset")
+            print("ZeroDivisionERROR in poorly_written_args_accuracy_summary_eval:\n\t`poorly_written` feature is MISSING in this dataset")
             return {"key": "poorly_written_args_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in poorly_written_args_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in poorly_written_args_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "poorly_written_args_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in poorly_written_args_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in poorly_written_args_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "poorly_written_args_accuracy",
                     "score": -1.0}
 
@@ -929,138 +884,398 @@ class SummaryEvaluators:
                         args_match = self.evaluators.data_provider_args_match(run, example)['score']
                         if args_match:
                             poorly_written_correct_id_and_args += self.evaluators.result_match(run, example)['score']
-
+            
             return {"key": "poorly_written_result_accuracy",
-                    "score": poorly_written_correct_id_and_args / poorly_written_examples}
+                    "score": poorly_written_correct_id_and_args/poorly_written_examples}
         except ZeroDivisionError:
-            print(
-                "ZeroDivisionERROR in poorly_written_result_accuracy_summary_eval:\n\t`poorly_written` feature is MISSING in this dataset")
+            print("ZeroDivisionERROR in poorly_written_result_accuracy_summary_eval:\n\t`poorly_written` feature is MISSING in this dataset")
             return {"key": "poorly_written_result_accuracy",
                     "score": -1.0}
         except KeyError as e:
-            print(
-                f"KeyError in poorly_written_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            print(f"KeyError in poorly_written_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
             return {"key": "poorly_written_result_accuracy",
                     "score": -1.0}
         except Exception as e:
-            print(
-                f"ERROR in poorly_written_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            print(f"ERROR in poorly_written_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
             return {"key": "poorly_written_result_accuracy",
                     "score": -1.0}
 
-
-# --------------------------------------- OUTDATED ---------------------------------------#
-# Low complexity
-def low_complexity_args_accuracy_summary_eval(runs: List[Run], examples: List[Example]) -> dict:
-    """
-    Data provider and args accuracy evaluator for the low complexity queries.
-    ### Parameters:
-    - runs: List[Run] - list of LangChain Run objects
-    - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
-
-    ### Returns:
-    - dict: {"key": "low_compl_args_accuracy",
-             "score": float} - the accuracy score for the low complexity queries
-    """
-    try:
-        low_comp_correct_id_and_args = 0
-        low_comp_examples = 0
-
-        for run, example in zip(runs, examples):
-            # Check right complexity
-            if example.outputs["complexity"] == "low":
-                id_match = data_provider_id_match(run, example)['score']
-                low_comp_examples += 1
-
-                # check the args only when id was predicted correctly
-                if id_match:
-                    args_match = data_provider_args_match(run, example)['score']
-                    low_comp_correct_id_and_args += args_match
-
-        return {"key": "low_compl_args_accuracy",
-                "score": low_comp_correct_id_and_args / low_comp_examples}
-    except KeyError as e:
-        print(f"KeyError: {str(e)} ATTRIBUTE IS MISSING IN THE TEST DATASET")
-        return {"key": "low_compl_args_accuracy",
-                "score": -1.0}
-    except Exception as e:
-        print(f"An error occurred while evaluating low complexity accuracy: {str(e)}")
-        return {"key": "low_compl_args_accuracy",
-                "score": -1.0}
+    def executable_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
+        """
+        Accuracy evaluator on how the model handled executable (executable==True) queries.
+        ### Parameters:
+        - runs: List[Run] - list of LangChain Run objects
+        - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
 
 
-# Medium complexity
-def medium_complexity_args_accuracy_summary_eval(runs: List[Run], examples: List[Example]) -> dict:
-    """
-    Data provider and args accuracy evaluator for the medium complexity queries.
-    ### Parameters:
-    - runs: List[Run] - list of LangChain Run objects
-    - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
+        ### Returns:
+        - dict: {"key": "executable_accuracy",
+                "score": float} - the accuracy score for the executable queries
+        """
+        try:
+            executable_correct = 0
+            executable_examples = 0
 
-    ### Returns:
-    - dict: {"key": "medium_compl_args_accuracy",
-             "score": float} - the accuracy score for the medium complexity queries
-    """
-    try:
-        med_comp_correct_id_and_args = 0
-        med_comp_examples = 0
+            for run, example in zip(runs, examples):
+                if example.outputs["executable"]:
+                    executable_examples += 1
+                    executable_correct += self.evaluators.executable_match(run, example)['score']
+            
+            print(f"Number of executable examples: {executable_examples}")
+            return {"key": "executable_accuracy",
+                    "score": executable_correct/executable_examples}
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in executable_accuracy_summary_eval:\n\t`executable` feature is MISSING in this dataset")
+            return {"key": "executable_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in executable_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "executable_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in executable_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "executable_accuracy",
+                    "score": -1.0}
+        
+    def non_executable_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
+        """
+        Accuracy evaluator on how the model handled non-executable (executable==False) queries.
+        ### Parameters:
+        - runs: List[Run] - list of LangChain Run objects
+        - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
 
-        for run, example in zip(runs, examples):
-            if example.outputs["complexity"] == "medium":
-                id_match = data_provider_id_match(run, example)['score']
-                med_comp_examples += 1
-                if id_match:
-                    args_match = data_provider_args_match(run, example)['score']
-                    med_comp_correct_id_and_args += args_match
 
-        return {"key": "medium_compl_args_accuracy",
-                "score": med_comp_correct_id_and_args / med_comp_examples}
-    except KeyError as e:
-        print(f"KeyError: {str(e)} ATTRIBUTE IS MISSING IN THE TEST DATASET")
-        return {"key": "medium_compl_args_accuracy",
-                "score": -1.0}
-    except Exception as e:
-        print(f"An error occurred while evaluating medium complexity accuracy: {str(e)}")
-        return {"key": "medium_compl_args_accuracy",
-                "score": -1.0}
+        ### Returns:
+        - dict: {"key": "non_executable_accuracy",
+                "score": float} - the accuracy score for the non-executable queries
+        """
+        try:
+            non_executable_correct = 0
+            non_executable_examples = 0
 
+            for run, example in zip(runs, examples):
+                if not example.outputs["executable"]:
+                    non_executable_examples += 1
+                    non_executable_correct += self.evaluators.executable_match(run, example)['score']
+            
+            print(f"Number of non-executable examples: {non_executable_examples}")
+            return {"key": "non_executable_accuracy",
+                    "score": non_executable_correct/non_executable_examples}
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in non_executable_accuracy_summary_eval:\n\t`executable` feature is MISSING in this dataset")
+            return {"key": "non_executable_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in non_executable_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "non_executable_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in non_executable_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            traceback.print_exc()
+            return {"key": "non_executable_accuracy",
+                    "score": -1.0}
+        
+    # --------------------------------------- Complexity ---------------------------------------#
+    # trivial complexity
+    def trivial_complexity_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
+        """
+        Result accuracy evaluator for the trivial complexity queries. Trivial complexity queries are those that:
+        - only require filtering and/or aggregation without any awareness or graph analysis categories
+        - don't have more than 2 categories at the same time
+        ### Parameters:
+        - runs: List[Run] - list of LangChain Run objects
+        - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
 
-# High complexity
-def high_complexity_args_accuracy_summary_eval(runs: List[Run], examples: List[Example]) -> dict:
-    """
-    Data provider and args accuracy evaluator for the high complexity queries.
-    ### Parameters:
-    - runs: List[Run] - list of LangChain Run objects
-    - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
+        ### Returns:
+        - dict: {"key": "trivial_complexity_result_accuracy",
+                "score": float} - the accuracy score for the trivial complexity queries
+        """
+        try:
+            trivial_complexity_correct = 0
+            trivial_complexity_examples = 0
 
-    ### Returns:
-    - dict: {"key": "high_compl_args_accuracy",
-             "score": float} - the accuracy score for the high complexity queries
-    """
-    try:
-        high_comp_correct_id_and_args = 0
-        high_comp_examples = 0
+            for run, example in zip(runs, examples):
+                categories = example.outputs["categories"]
+                # Check if it's a trivial complexity query
+                has_awareness = any(aware in categories for aware in ["geospatial awareness", "temporal awareness"])
+                has_graph_analytics = any(graph in categories for graph in ["community detection", "pagerank", 
+                                                                            "network density", "clustering coefficient", 
+                                                                            "centrality degree"])
+                category_count = len(categories)
+                has_filtering = "filtering" in categories
+                has_aggregation = "aggregation" in categories
+                
+                # Trivial complexity criteria check
+                if (not has_awareness and 
+                    category_count <= 2 and
+                    not has_graph_analytics and 
+                    (has_filtering or
+                    has_aggregation)):  # XOR - either filtering or aggregation, not both
+                    
+                    trivial_complexity_examples += 1
+                    id_match = self.evaluators.data_provider_id_match(run, example)['score']
+                    if id_match:
+                        args_match = self.evaluators.data_provider_args_match(run, example)['score']
+                        if args_match:
+                            result_match = self.evaluators.result_match(run, example)['score']
+                            trivial_complexity_correct += result_match
 
-        for run, example in zip(runs, examples):
-            if example.outputs["complexity"] == "high":
-                id_match = data_provider_id_match(run, example)['score']
-                high_comp_examples += 1
-                if id_match:
-                    args_match = data_provider_args_match(run, example)['score']
-                    high_comp_correct_id_and_args += args_match
+            print(f"Number of trivial complexity examples: {trivial_complexity_examples}")
+            return {"key": "trivial_complexity_result_accuracy",
+                    "score": trivial_complexity_correct/trivial_complexity_examples}
+        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in trivial_complexity_result_accuracy_summary_eval:\n\tNo trivial complexity queries in this dataset")
+            return {"key": "trivial_complexity_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in trivial_complexity_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "trivial_complexity_result_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in trivial_complexity_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "trivial_complexity_result_accuracy",
+                    "score": -1.0}
+        
+    def determine_query_complexity(self, categories: List[str]) -> str:
+        """
+        Determine the complexity of a query based on its categories. The complexity levels are:
+        - "trivial": only filtering and/or aggregation without any awareness or graph analysis categories
+        - "low": filtering or aggregation with at most temporal awareness and no graph analysis or single graph analysis category with either filtering or aggregation without awarenesses
+        - "medium": filtering or aggregation with geospatial awareness (not excluding combination of awarenesses) and single graph analysis category with both filtering and aggregation and optional temporal awareness
+        - "hard": graph analysis with geospatial awareness (not excluding combination of awarenesses) and any query with multiple graph analysis categories
+        
+        ### Parameters:
+        - categories: List[str] - list of categories assigned to the query
+        
+        ### Returns:
+        - str: One of "trivial", "low", "medium", or "hard" indicating complexity level
+        """
+        # Check query characteristics
+        has_geosp_awareness = "geospatial awareness" in categories
+        has_temp_awareness = "temporal awareness" in categories
+        category_count = len(categories)
+        has_filtering = "filtering" in categories
+        has_aggregation = "aggregation" in categories
+        
+        # Count graph analytics tasks
+        graph_analytics_categories = ["community detection", "pagerank", 
+                                    "network density", "clustering coefficient", 
+                                    "centrality degree"]
+        graph_analytics_count = sum(1 for graph in graph_analytics_categories if graph in categories)
+        has_graph_analytics = graph_analytics_count > 0
+        
+        # Hard complexity check - either geo+graph OR multiple graph analytics
+        if (has_geosp_awareness and has_graph_analytics) or graph_analytics_count > 1:
+            return "hard"
+        
+        # Medium complexity check
+        # Case 1: awareness with filtering/aggregation
+        if (has_geosp_awareness and (has_filtering or has_aggregation) and not has_graph_analytics):
+            return "medium"
+        # Case 2: graph analytics with both filtering and aggregation but no geo awareness
+        if has_graph_analytics and graph_analytics_count == 1 and has_filtering and has_aggregation and not has_geosp_awareness:
+            return "medium"
+        
+        # Low complexity check
+        if (not has_geosp_awareness and 
+            category_count <= 3 and
+            graph_analytics_count <= 1 and
+            ((has_graph_analytics and (has_filtering != has_aggregation)) or  # XOR - either filtering or aggregation
+            (has_graph_analytics and not has_filtering and not has_aggregation) or
+            (has_temp_awareness and (has_filtering or has_aggregation) and not has_graph_analytics))):
+            return "low"
+        
+        # Trivial complexity check (default if none of the above)
+        if (not has_geosp_awareness and 
+            not has_temp_awareness and
+            category_count <= 2 and
+            not has_graph_analytics and 
+            (has_filtering or has_aggregation)):
+            return "trivial"
+        
+        # Default case (anything that doesn't fit the above criteria)
+        return "uncategorized"
 
-        return {"key": "high_compl_args_accuracy",
-                "score": high_comp_correct_id_and_args / high_comp_examples}
+    def trivial_complexity_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
+        """
+        Result accuracy evaluator for the trivial complexity queries.
+        
+        ### Parameters:
+        - runs: List[Run] - list of LangChain Run objects
+        - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
 
-    except KeyError as e:
-        print(f"KeyError: {str(e)} ATTRIBUTE IS MISSING IN THE TEST DATASET")
-        return {"key": "high_compl_args_accuracy",
-                "score": -1.0}
-    except Exception as e:
-        print(f"An error occurred while evaluating high complexity accuracy: {str(e)}")
-        print("HIGH COMPLEXITY FEATURE MIGHT BE MISSING IN THE TEST DATASET")
-        return {"key": "high_compl_args_accuracy",
-                "score": -1.0}
+        ### Returns:
+        - dict: {"key": "trivial_complexity_result_accuracy",
+                "score": float} - the accuracy score for the trivial complexity queries
+        """
+        try:
+            trivial_complexity_correct = 0
+            trivial_complexity_examples = 0
+
+            for run, example in zip(runs, examples):
+                complexity = self.determine_query_complexity(example.outputs["categories"])
+                
+                if complexity == "trivial":
+                    trivial_complexity_examples += 1
+                    id_match = self.evaluators.data_provider_id_match(run, example)['score']
+                    if id_match:
+                        args_match = self.evaluators.data_provider_args_match(run, example)['score']
+                        if args_match:
+                            result_match = self.evaluators.result_match(run, example)['score']
+                            trivial_complexity_correct += result_match
+
+            print(f"Number of trivial complexity examples: {trivial_complexity_examples}")
+            return {"key": "trivial_complexity_result_accuracy",
+                    "score": trivial_complexity_correct/trivial_complexity_examples}
+        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in trivial_complexity_result_accuracy_summary_eval:\n\tNo trivial complexity queries in this dataset")
+            return {"key": "trivial_complexity_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in trivial_complexity_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "trivial_complexity_result_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in trivial_complexity_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "trivial_complexity_result_accuracy",
+                    "score": -1.0}
+
+    def low_complexity_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
+        """
+        Result accuracy evaluator for the low complexity queries.
+        
+        ### Parameters:
+        - runs: List[Run] - list of LangChain Run objects
+        - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
+
+        ### Returns:
+        - dict: {"key": "low_complexity_result_accuracy",
+                "score": float} - the accuracy score for the low complexity queries
+        """
+        try:
+            low_complexity_correct = 0
+            low_complexity_examples = 0
+
+            for run, example in zip(runs, examples):
+                complexity = self.determine_query_complexity(example.outputs["categories"])
+                
+                if complexity == "low":
+                    low_complexity_examples += 1
+                    id_match = self.evaluators.data_provider_id_match(run, example)['score']
+                    if id_match:
+                        args_match = self.evaluators.data_provider_args_match(run, example)['score']
+                        if args_match:
+                            result_match = self.evaluators.result_match(run, example)['score']
+                            low_complexity_correct += result_match
+
+            print(f"Number of low complexity examples: {low_complexity_examples}")
+            return {"key": "low_complexity_result_accuracy",
+                    "score": low_complexity_correct/low_complexity_examples}
+        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in low_complexity_result_accuracy_summary_eval:\n\tNo low complexity queries in this dataset")
+            return {"key": "low_complexity_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in low_complexity_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "low_complexity_result_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in low_complexity_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "low_complexity_result_accuracy",
+                    "score": -1.0}
+
+    def medium_complexity_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
+        """
+        Result accuracy evaluator for the medium complexity queries.
+        
+        ### Parameters:
+        - runs: List[Run] - list of LangChain Run objects
+        - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
+
+        ### Returns:
+        - dict: {"key": "medium_complexity_result_accuracy",
+                "score": float} - the accuracy score for the medium complexity queries
+        """
+        try:
+            medium_complexity_correct = 0
+            medium_complexity_examples = 0
+
+            for run, example in zip(runs, examples):
+                complexity = self.determine_query_complexity(example.outputs["categories"])
+                
+                if complexity == "medium":
+                    medium_complexity_examples += 1
+                    id_match = self.evaluators.data_provider_id_match(run, example)['score']
+                    if id_match:
+                        args_match = self.evaluators.data_provider_args_match(run, example)['score']
+                        if args_match:
+                            result_match = self.evaluators.result_match(run, example)['score']
+                            medium_complexity_correct += result_match
+
+            print(f"Number of medium complexity examples: {medium_complexity_examples}")
+            return {"key": "medium_complexity_result_accuracy",
+                    "score": medium_complexity_correct/medium_complexity_examples}
+        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in medium_complexity_result_accuracy_summary_eval:\n\tNo medium complexity queries in this dataset")
+            return {"key": "medium_complexity_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in medium_complexity_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "medium_complexity_result_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in medium_complexity_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "medium_complexity_result_accuracy",
+                    "score": -1.0}
+
+    def hard_complexity_result_accuracy_summary_eval(self, runs: List[Run], examples: List[Example]) -> dict:
+        """
+        Result accuracy evaluator for the hard complexity queries.
+        
+        ### Parameters:
+        - runs: List[Run] - list of LangChain Run objects
+        - examples: List[Example] - list of Langsmith Example objects (from the test dataset)
+
+        ### Returns:
+        - dict: {"key": "hard_complexity_result_accuracy",
+                "score": float} - the accuracy score for the hard complexity queries
+        """
+        try:
+            hard_complexity_correct = 0
+            hard_complexity_examples = 0
+
+            for run, example in zip(runs, examples):
+                complexity = self.determine_query_complexity(example.outputs["categories"])
+                
+                if complexity == "hard":
+                    hard_complexity_examples += 1
+                    id_match = self.evaluators.data_provider_id_match(run, example)['score']
+                    if id_match:
+                        args_match = self.evaluators.data_provider_args_match(run, example)['score']
+                        if args_match:
+                            result_match = self.evaluators.result_match(run, example)['score']
+                            hard_complexity_correct += result_match
+
+            print(f"Number of hard complexity examples: {hard_complexity_examples}")
+            return {"key": "hard_complexity_result_accuracy",
+                    "score": hard_complexity_correct/hard_complexity_examples}
+        
+        except ZeroDivisionError:
+            print("ZeroDivisionERROR in hard_complexity_result_accuracy_summary_eval:\n\tNo hard complexity queries in this dataset")
+            return {"key": "hard_complexity_result_accuracy",
+                    "score": -1.0}
+        except KeyError as e:
+            print(f"KeyError in hard_complexity_result_accuracy_summary_eval:\n\t{str(e)} attribute is MISSING in the model's output/dataset")
+            return {"key": "hard_complexity_result_accuracy",
+                    "score": -1.0}
+        except Exception as e:
+            print(f"ERROR in hard_complexity_result_accuracy_summary_eval:\n\tAn unexpected error occurred\n\tError message: {str(e)}\n\t||END OF MESSAGE||\n")
+            return {"key": "hard_complexity_result_accuracy",
+                    "score": -1.0}
 
 
 @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=max_tries, base=base, factor=factor,

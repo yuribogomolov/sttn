@@ -1,0 +1,215 @@
+You're a helpful dataset creator. We are using the SpatioTemporalNetwork class, which consists of nodes (that are represented in Geopandas DataFrame) and edges (represented as regular pd.DataFrame).
+We're using two data providers: NYC Taxi Data and LEHD. They retrieve the data from external sources, and then we use it in the LLM chain to generate analysis code to answer user queries.
+Here's the description of NycTaxiDataProvider:
+[[NycTaxiDataProvider DESCRIPTION]]
+...
+...
+[[END OF PROVIDER DESCRIPTION]]
+And OriginDestinationEmploymentDataProvider:
+[[OriginDestinationEmploymentDataProvider DESCRIPTION]]
+...
+...
+[[END OF PROVIDER DESCRIPTION]]
+Your task is to create a test dataset to check our LLM Chain. The dataset is a list named 'questions' that consist of two-element tuples. The first element of such a tuple is the user's query with str type, and the second element is the dictionary with the right answers. The dictionary contains the following key-value pairs:
+"data_provider_id" (str) - show the name of the data provider ("NycTaxiDataProvider" or "OriginDestinationEmploymentDataProvider")
+"data_provider_args" (dict: str to str) - the arguments for the data provider to retrieve the data (e.g. {"taxi_type": "yellow", "month": "2013-10"}, {"state": "md", "year": "2017"}, etc.)
+"executable" (bool) - binary value representing whether it's possible to launch the query or retrieve the requested  (e.g., False if the requested information is beyond the date scope, unavailable location, completely unrelated query, etc.)
+"poorly_written" (bool) - binary value representing whether the query contains written error (e.g. typos, wrong date format, etc.)
+"categories" (list[str])  - a list representing to which categories the query belongs. It also shows what should be accounted for while addressing the query in code (e.g. ['filtering', 'temporal awareness', 'aggregation', 'community detection'])
+    The possible categories are:
+    - "filtering" - the query requires the code to contain additional filtering (except the data provider arguments)
+    - "geospatial awareness" - the query requires the code to account for different geospatial features (not originally available in specific data provider) and peculiarities like:
+        ...
+        ...
+    - "temporal awareness" - the query requires the code to account for different temporal features (not available in specific data provider) like:
+        ...
+        ...
+    - "aggregation" - the query requires the code to do aggregation (max, median, sum, etc.) of the data
+    - "community detection" - the query requires the code to perform community detection with Combo algorithm(default random_state=0) (find the number of communities, achieved modularity score for graph, the size of the biggest community, etc.)
+    - "network density" - the query requires the code to find the network density (unweighted, weighted, etc.)
+    - "clustering coefficient" - the query requires the code to find the clustering coefficient (e.g. average clustering coefficient)
+    - "centrality degree" - the query requires the code to find the centrality degree (e.g. average normalized degree centrality, max betweenness centrality with weighted edges, etc.)
+"result" (int or float or None) - single float or int value showing the expected result of the query
+
+Below, I give you examples of how the queries and answer dictionaries should look like, with explanations of some choices in the comments:
+[[EXAMPLE 1]]
+(
+        "How many people over 29 years old commuted from Montgomery County, MD, to other counties in 2017?",
+        {
+            "data_provider_id": "OriginDestinationEmploymentDataProvider",
+            "data_provider_args": {"state": "md", "year": "2017"},
+            "executable": True,
+            "poorly_written": False,
+            "categories": ["filtering", "aggregation"],  # "filtering" because to answer the query, the additional filtering along with the data provider arguments must be used, there is an "aggregation" category because the query requires aggregation of census tracts belonging to a county, there is no "geospatial awareness" category because the data provider already has county data and query used official names of counties, there is no "temporal awareness" category because the query doesn't require any additional temporal information
+            "result": None,
+            
+        },
+),
+[[END OF EXAMPLE 1]]
+[[EXAMPLE 2]]
+    (
+        "Median of yelou taxi trips fare at Heloween 2021 at 1 AM from New-York county?",
+        {
+            "data_provider_id": "NycTaxiDataProvider",
+            "data_provider_args": {"taxi_type": "yellow", "month": "2021-10"},
+            "executable": True,
+            "poorly_written": True,
+            "categories": ["aggregation", "filtering", "temporal awareness", "geospatial awareness"],  # "temporal awareness" because to answer the query, the model should know when Halloween is happening, and we don't state the month separately, "geospatial awareness" because the model should know that New Yourk county is Manhattan and this data provider has only borough information, "aggregation" because we need to find the median value
+            "result": None,
+            
+        },
+    ),
+[[END OF EXAMPLE 2]]
+[[EXAMPLE 3]]
+(
+    "Find the census tract with the highest degree of centrality in the commuters network in Manhattan in 2019 and only provide its centrality score",
+    {
+         "data_provider_id": "OriginDestinationEmploymentDataProvider",
+         "data_provider_args": {"state": "ny", "year": "2017"},
+         "executable": True,
+         "poorly_written": False,
+         "categories": ["filtering", "centrality degree", "geospatial awareness"],  # "geospatial awareness" because in this data provider we have data about official counties names and Manhattan borough's official name is New York county, "centrality degree" because we need to find out info related to centrality score
+         "result": None,
+        },
+    ),
+[[END OF EXAMPLE 3]]
+[[EXAMPLE 4]]
+    (
+        "How many people from all child-birth sectors commuted from Staten Island to Queens in 2025?",
+        {
+            "data_provider_id": "",
+            "data_provider_args": {},
+            "executable": False,   # Future date beyond available data range and we don't have data regarding child-birth sectors in this data provider
+            "poorly_written": False,
+            "categories": [],
+            "result": None,
+            # when executable is False - every other value remains empty 
+        },
+    ),
+[[END OF EXAMPLE 4]]
+[[EXAMPLE 5]]
+(
+    "Return the census tract id where the number of jobs with earnings $1250/month or less for workers commuting from Jefferson County, LA to Orleans County, LA in 2018 is the highest",
+    {
+        "data_provider_id": "OriginDestinationEmploymentDataProvider",
+        "data_provider_args": {"state": "la", "year": "2018"},
+        "executable": True,
+        "poorly_written": True, # Jefferson, Orleans are parish names, not counties
+        "categories": ["filtering", "aggregation", "geospatial awareness"],  # "geospatial awareness" because in this data provider we have official county or county-equivalent names and model must know that Jefferson and Orleans are officialy named parishes, not counties (user made a mistake)
+        "result": None,
+    },
+),
+[[END OF EXAMPLE 5]
+[[EXAMPLE 6]]
+(
+    "Find the related difference between yellow taxi mean fare prise of trips from JFK to it's belongig borough and mean fare price from EWR to its belonging borough at the valentyne's day 2019",
+    {
+        "data_provider_id": "NycTaxiDataProvider",
+        "data_provider_args": {"taxi_type": "yellow", "month": "2019-02"},
+        "executable": True,
+        "poorly_written": True,  # price, Valentine's, belonging are misspelled, 'the' before Valentine's Day is unnecessary
+        "categories": ["filtering", "temporal awareness", "geospatial awareness", "aggregation"],  # "temporal awareness" because the model should know when Valentine's Day is happening and we don't state the month separately, "geospatial awareness" because the model should know in which boroughs JFK and EWR are located and their full names, "aggregation" because we need to find the difference between two mean values
+        "result": None,
+    },
+),
+[[END OF EXAMPLE 6]]
+[[EXAMPLE 7]]
+(
+    "Find the approximate daily number of workers commuting from Kansas City to other census tracts in the same state in 2012",
+    {
+        "data_provider_id": "OriginDestinationEmploymentDataProvider",
+        "data_provider_args": {"state": "mo", "year": "2012"},
+        "executable": True,
+        "poorly_written": False,
+        "categories": ["filtering", "aggregation", "temporal awareness", "geospatial awareness"],  # "filtering" because to answer the query, the additional filtering along with the data provider arguments must be used, "aggregation" because we need to find the average value, "temporal awareness" because to properly find the daily number of workers we need to know that 2012 has 366 days, "geospatial awareness" because in this data provider we have data about counties and model should know of which counties Kansas City consists and filter out other counties
+        "result": None,
+    },
+),
+[[END OF EXAMPLE 7]]
+[[EXAMPLE 8]]
+(
+    "How many detected communities include 3 most northern county-equivalents in the employee mobility network in 2015, Alaska",
+    {
+        "data_provider_id": "OriginDestinationEmploymentDataProvider",
+        "data_provider_args": {"state": "ak", "year": "2015"},
+        "executable": True,
+        "poorly_written": False,
+        "categories": ["community detection", "filtering", "aggregation", "geospatial awareness"], # "community detection" because we need to find the communities for requested nodes, "filtering" because to answer the query the additional filtering along with the data provider arguments must be used, "aggregation" because we need to find the average value, "geospatial awareness" because for this data provider the model should know that official equivalent of counties in Alaska are boroughs and census areas and should be aware of 3 most northern boroughs or census areas
+        "result": None,
+    },
+),
+[[END OF EXAMPLE 8]]
+[[EXAMPLE 9]]
+(
+    "Number of yellow taxi trips from World Trade Center to Richmond County in February 2019?"
+    {
+        "data_provider_id": "NycTaxiDataProvider",
+        "data_provider_args": {"taxi_type": "yellow", "month": "2019-02"},
+        "executable": True,
+        "poorly_written": False,
+        "categories": ["filtering", "geospatial awareness"],  # "geospatial awareness" because the model should know that Richmond County in Staten Island and in this data provider we have borough information, "filtering" because to answer the query the additional filtering along with the data provider arguments must be used
+        "result": None,
+    },
+),
+[[END OF EXAMPLE 9]]
+[[EXAMPLE 10]]
+(
+    "Total jobs workers age 29 or younger commuting from montgomery county, MD to Fairfax County, VA in 2018",
+    {
+        "data_provider_id": "",
+        "data_provider_args": {},
+        "executable": False,  # "Montgomery County" and "Fairfax County" are in different states
+        "poorly_written": True,  # missing 'for' after workers, montgomery county should be written as "Montgomery County" 
+        "categories": [],
+        "result": None,
+    },
+),
+[[END OF EXAMPLE 10]]
+[[EXAMPLE 11]]
+(
+    "Find the modularity score for the community detection of the census tracts in Lafayette Parish, LA in 2018",
+    {
+        "data_provider_id": "OriginDestinationEmploymentDataProvider",
+        "data_provider_args": {"state": "la", "year": "2018"},
+        "executable": True,
+        "poorly_written": False,
+        "categories": ["filtering", "community detection"],  # "filtering" because to answer the query, the additional filtering along with the data provider arguments must be used, "community detection" because we need to find the modularity score, there's no "geospatial awareness" category because the data provider already has county data and query used official names of counties, there's no "temporal awareness" category because the query doesn't require any additional temporal information, there's no "geospatial awareness" category because the query doesn't require any additional geospatial knowledge from the model
+        "result": None,
+    },
+),
+[[END OF EXAMPLE 11]]
+[[EXAMPLE 12]]
+(
+    "Find the network density for the yellow taxi zones in Los Angeles in 2019",
+    {
+        "data_provider_id":"",
+        "data_provider_args": {},
+        "executable": False,  # in this data provider we have only New York City taxi data
+        "poorly_written": False,
+        "categories": [],
+        "result": None,
+    },
+),
+[[END OF EXAMPLE 12]]
+
+You will need to generate for the following combination of categories called groups:
+1. Filtering 
+2. Filtering, Temporal and/or Geospatial awareness
+3. Aggregation
+4. Aggregation, Filtering
+5. Aggregation, Filtering, Temporal and/or Geospatial awareness
+6. Community detection
+7. Community detection, Filtering
+8. Community detection, Filtering, Temporal and/or Geospatial awareness
+.
+.
+.
+$G-1$. Centrality degree, Aggregation
+$G$. Centrality degree, Filtering, Temporal and/or Geospatial awareness
+
+
+Create $N$ examples for each group and each data provider. In each group, we should have $P$ examples with poorly-written queries and $E$ non-executable queries. 
+Leave "result" empty. Formulate the queries the way the final answer will be a single float/int (it can be the value or specific id received after performed analytics).
+Also, add reasoning comments when the query is non-exetuable (date out of range, non-existent location, etc.), has poor writing, or has categories 'temporal awareness' and 'geospatial awareness'.
+Create everything within one list and divide the categories and data providers with #___________[[DATA PROVIDER NAME]]___________ and #-----[[CATEGORY NAME]]-----
+"""
