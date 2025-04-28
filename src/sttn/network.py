@@ -1,7 +1,6 @@
 import geopandas as gpd
 import networkx as nx
 import pandas as pd
-import skmob
 
 from sttn import constants
 
@@ -70,7 +69,8 @@ class SpatioTemporalNetwork:
         return nx.from_pandas_edgelist(self._edges, source=self._origin, target=self._destination,
                                        edge_attr=True, create_using=nx.MultiDiGraph)
 
-    def to_flow_date_frame(self, flow: str) -> skmob.FlowDataFrame:
+    def to_flow_date_frame(self, flow: str):
+        import skmob
         return skmob.FlowDataFrame(self._edges, origin=self._origin, destination=self._destination, flow=flow,
                                    tile_id=self._node_id, tessellation=self._nodes.reset_index())
 
