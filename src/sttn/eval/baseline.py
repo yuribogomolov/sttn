@@ -1,3 +1,5 @@
+from typing import Optional
+
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -10,7 +12,8 @@ class ResultModel(BaseModel):
 
 
 class GPTAnalyst:
-    def __init__(self, model_name: str, temperature: float = 0, verbose: bool = False):
+    def __init__(self, verbose: bool = False, model_name: str = "gpt-4o-mini", code_retry_limit: int = 1,
+                 temperature: float = 0):
         self.client = OpenAI()
         self.model_name = model_name
         self.verbose = verbose
@@ -36,7 +39,7 @@ class GPTAnalyst:
         result = response.choices[0].message.parsed
         return result
 
-    def chat(self, user_query: str) -> Context:
+    def chat(self, user_query: Optional[str] = None) -> Context:
         result = self._ask_chatgpt(user_query)
 
         query = Query(user_query)
