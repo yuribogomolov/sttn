@@ -19,7 +19,7 @@ class GPTAnalyst:
         self.verbose = verbose
         self.temperature = temperature
 
-    def _ask_chatgpt(self, prompt: str) -> str:
+    def _ask_chatgpt(self, prompt: str) -> Optional[float]:
         if self.verbose:
             print(f"Prompting model {self.model_name} with:\n{prompt}\n")
 
@@ -37,7 +37,7 @@ class GPTAnalyst:
             response_format=ResultModel,
         )
         result = response.choices[0].message.parsed
-        return result
+        return result.result
 
     def chat(self, user_query: Optional[str] = None) -> Context:
         result = self._ask_chatgpt(user_query)
