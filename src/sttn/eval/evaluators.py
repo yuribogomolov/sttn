@@ -1280,8 +1280,9 @@ class SummaryEvaluators:
 
 @backoff.on_exception(backoff.expo, (openai.RateLimitError), max_tries=max_tries, base=base, factor=factor,
                       max_value=max_value)
-def get_context_with_backoff(inputs: dict, model_name: str, code_retry_limit: int, temperature: float):
-    analyst = STTNAnalyst(model_name=model_name, code_retry_limit=code_retry_limit, temperature=temperature)
+def get_context_with_backoff(inputs: dict, model_name: str, code_retry_limit: int, temperature: float,
+                             analyst_class):
+    analyst = analyst_class(model_name=model_name, code_retry_limit=code_retry_limit, temperature=temperature)
     context = analyst.chat(user_query=inputs["question"])
     context.analysis_code = str(context.analysis_code) if context.analysis_code else ''
     return context
@@ -1300,7 +1301,7 @@ def delete_generated_temp_vars(analysis_code: str, id: int):
 
 
 @traceable
-def analyst_results(model_name: str, code_retry_limit: int, temperature: float):
+def analyst_results(model_name: str, code_retry_limit: int, temperature: float, analyst_class=STTNAnalyst):
     """
     Wrapper function to get the results from the Analyst and return them in a dictionary
     Args:
@@ -1308,6 +1309,7 @@ def analyst_results(model_name: str, code_retry_limit: int, temperature: float):
         model_name: str, the name of the model to use
         code_retry_limit: int, the number of times to retry the code
         temperature: float, model temperature
+        analyst_class: analyst implementation
     Returns:
         dict, the results from the Analyst
     """
@@ -1324,7 +1326,7 @@ def analyst_results(model_name: str, code_retry_limit: int, temperature: float):
         # Get the context from the Analyst
         try:
             context = get_context_with_backoff(inputs=inputs, model_name=model_name, code_retry_limit=code_retry_limit,
-                                               temperature=temperature)
+                                               temperature=temperature, analyst_class=analyst_class)
         except Exception as e:
             print(
                 f"\n\nQuery_ID: {inputs['id']}, ERROR:\n\tAn error happened while launching Analyst (return empty dict instead)\n\tError message:")
