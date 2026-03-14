@@ -73,7 +73,8 @@ class NycTaxiDataProvider(DataProvider):
         to_date = from_date + relativedelta(months=1)
         df = df[(df['tpep_pickup_datetime'] >= from_date) & (df['tpep_pickup_datetime'] <= to_date)]
         df['passenger_count'] = df['passenger_count'].astype(int)
-        labels = gpd.read_file(TAXI_ZONE_SHAPE_URL)
+        taxi_zones_file = self.cache_file(TAXI_ZONE_SHAPE_URL)
+        labels = gpd.read_file(f"zip://{taxi_zones_file}!taxi_zones/taxi_zones.shp")
         return self.build_network(df, labels)
 
 
@@ -101,8 +102,9 @@ class Service311RequestsDataProvider(DataProvider):
         column_names = ['Incident Zip', 'City', 'Latitude', 'Longitude', 'Complaint Type', 'Created Date']
         filtered_file = self.filter_requests(data, from_date, to_date, column_names)
 
-        nyc_shape = gpd.read_file(
-            'https://data.cityofnewyork.us/api/views/i8iw-xf4u/files/YObIR0MbpUVA0EpQzZSq5x55FzKGM2ejSeahdvjqR20?filename=ZIP_CODE_040114.zip')
+        nyc_shape_url = 'https://data.cityofnewyork.us/api/views/i8iw-xf4u/files/YObIR0MbpUVA0EpQzZSq5x55FzKGM2ejSeahdvjqR20?filename=ZIP_CODE_040114.zip'
+        nyc_shape_file = self.cache_file(nyc_shape_url, local_filename='ZIP_CODE_040114.zip')
+        nyc_shape = gpd.read_file(f"zip://{nyc_shape_file}")
         nyc_shape['ZIPCODE'] = nyc_shape['ZIPCODE'].astype(int)
         requests = pd.read_parquet(filtered_file)
         requests['Incident Zip'] = requests['Incident Zip'].astype(int)
